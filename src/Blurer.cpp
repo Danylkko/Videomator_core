@@ -80,13 +80,13 @@ void core_api::Blurer::load_blurred_to_buffer(size_t frame_index)
     }
 }
 
-const std::vector<char> core_api::Blurer::buffer() const
+
+image_data core_api::Blurer::buffer() const
 {
     std::vector<char> res;
     res.assign(m_buffer.data, m_buffer.data + m_buffer.total() * m_buffer.channels());
-    return res;
+    return { m_buffer.data, m_buffer.cols, m_buffer.rows };
 }
-
 
 
 
@@ -129,4 +129,9 @@ void core_api::Blurer::decode(const cv::Mat& scores, const cv::Mat& geometry, fl
             confidences.push_back(score);
         }
     }
+}
+
+core_api::image_data::~image_data()
+{
+    delete[] data;
 }

@@ -11,7 +11,10 @@
 #include <string>
 #include <string_view>
 #include <array>
+#include <vector>
 #include <memory>
+
+#include <cstdint>
 
 
 #ifdef _WIN64
@@ -42,6 +45,15 @@ extern "C++"
 			std::string text;
 		};
 
+		struct image_data
+		{
+			uint8_t* data;
+			int32_t width;
+			int32_t height;
+
+			~image_data();
+		};
+
 
 		class Blurer
 		{
@@ -60,7 +72,7 @@ extern "C++"
 			void load_blurred_to_buffer(size_t frame_index = 0);
 
 			inline const cv::Mat& matrix_buffer() const { return m_buffer; }
-			const std::vector<char> buffer() const;
+			image_data buffer() const;
 
 		private:
 			static constexpr float confThreshold = 0.7;
