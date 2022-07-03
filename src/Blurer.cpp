@@ -188,7 +188,12 @@ void core_api::Blurer::BlurerImpl::decode(const cv::Mat& scores, const cv::Mat& 
     }
 }
 
-core_api::Blurer::Blurer() : m_impl(std::make_unique<BlurerImpl>()) {}
+core_api::Blurer::Blurer() : m_impl(new BlurerImpl()) {}
+
+core_api::Blurer::~Blurer()
+{
+    delete m_impl;
+}
 
 void core_api::Blurer::init()
 {
