@@ -1,5 +1,6 @@
 #include "Blurer.h"
 
+#include <iostream>
 
 using namespace core_api;
 
@@ -42,17 +43,19 @@ const std::vector<DetectedRect>& core_api::Blurer::detect(detection_mode mode)
     std::vector<int> indices;
     cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
 	
+    cv::Point2f ratio((float)m_current_frame.cols / inpWidth, (float)m_current_frame.rows / inpHeight);
     std::vector<DetectedRect> detected;
     for (auto index : indices)
     {
-        cv::RotatedRect& box = boxes[index];
-        cv::Point2f vertices[3];
-        box.points(vertices);
-        m_ocr->SetRectangle(vertices[1].x, vertices[1].y, std::abs(vertices[2].x - vertices[1].x), std::abs(vertices[1].y - vertices[0].y));
+        cv::Rect bbox = boxes[index].boundingRect();
+        cv::Rect normalized_bbox = cv::Rect{ int((float)bbox.x * ratio.x), int((float)bbox.y * ratio.y), int((float)bbox.width * ratio.x), int((float)bbox.height * ratio.y) };
+
+
+        m_ocr->SetRectangle(normalized_bbox.x, normalized_bbox.y, normalized_bbox.width, normalized_bbox.height);
         m_ocr->SetSourceResolution(2000);
 
         //std::string outText = m_ocr->GetUTF8Text();
-        detected.push_back({ {vertices[0], vertices[1], vertices[2]}, m_ocr->GetUTF8Text() });
+        detected.push_back({ normalized_bbox, m_ocr->GetUTF8Text() });
     }
 
     m_currently_detected = std::move(detected);
@@ -66,13 +69,14 @@ void core_api::Blurer::add_exceptions(const std::vector<DetectedRect>& exception
 
 void core_api::Blurer::load_blurred_to_buffer(size_t frame_index)
 {
-    cv::Mat blured_region;
+    m_buffer = m_current_frame;
     for (auto&[region, text] : m_currently_detected)
     {
-        auto region_rect = cv::RotatedRect{ region[0], region[1], region[2] };
+        cv::Mat blured_region;
+        cv::GaussianBlur(m_current_frame(region), blured_region, cv::Size(0, 0), 4);
 
-        cv::GaussianBlur(m_current_frame(region_rect.boundingRect()), blured_region, cv::Size(0, 0), 4);
-        blured_region.copyTo(m_buffer(region_rect.boundingRect()));
+        
+        blured_region.copyTo(m_buffer(region));
     }
 }
 

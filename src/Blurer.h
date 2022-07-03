@@ -38,7 +38,7 @@ extern "C++"
 
 		struct DetectedRect
 		{
-			std::array<cv::Point2f, 3> points;
+			cv::Rect bbox;
 			std::string text;
 		};
 
@@ -59,6 +59,7 @@ extern "C++"
 
 			void load_blurred_to_buffer(size_t frame_index = 0);
 
+			inline const cv::Mat& matrix_buffer() const { return m_buffer; }
 			const std::vector<char> buffer() const;
 
 		private:
