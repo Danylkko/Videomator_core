@@ -200,7 +200,7 @@ void core_api::Blurer::init()
     m_impl->init();
 }
 
-void core_api::Blurer::load(std::string_view filepath)
+void core_api::Blurer::load(std::string filepath)
 {
     m_impl->load(filepath);
 }

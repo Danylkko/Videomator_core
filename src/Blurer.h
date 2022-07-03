@@ -43,12 +43,13 @@ extern "C++"
 		{
 		public:
 			Blurer(); 
+			~Blurer();
 
 			enum class detection_mode { all, license_plates_only };
 
 			void init(); 
 
-			void load(std::string_view filepath); 
+			void load(std::string filepath); 
 
 			void detect(detection_mode mode = detection_mode::all); 
 			//const std::vector<DetectedRect>& currently_detected() const; 
@@ -63,7 +64,7 @@ extern "C++"
 		private:
 			class BlurerImpl;
 
-			std::unique_ptr<BlurerImpl> m_impl;
+			BlurerImpl* m_impl;
 		};
 
 	}
