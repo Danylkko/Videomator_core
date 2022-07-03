@@ -130,8 +130,3 @@ void core_api::Blurer::decode(const cv::Mat& scores, const cv::Mat& geometry, fl
         }
     }
 }
-
-core_api::image_data::~image_data()
-{
-    delete[] data;
-}
