@@ -1,0 +1,7 @@
+[requires]
+opencv/4.5.5
+tesseract/4.1.1 
+
+
+[generators]
+cmake
