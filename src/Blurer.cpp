@@ -1,10 +1,67 @@
 #include "Blurer.h"
 
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/dnn.hpp>
+
+#include <tesseract/baseapi.h>
+#include <leptonica/allheaders.h>
+
 #include <iostream>
 
 using namespace core_api;
 
-void core_api::Blurer::init()
+
+struct core_api::DetectedRect
+{
+    cv::Rect bbox;
+    std::string text;
+};
+
+
+class core_api::Blurer::BlurerImpl
+{
+public:
+    void init();
+
+    void load(std::string_view filepath);
+
+    const std::vector<DetectedRect>& detect(Blurer::detection_mode mode = Blurer::detection_mode::all);
+    const std::vector<DetectedRect>& currently_detected() const;
+
+    void add_exceptions(const std::vector<DetectedRect>& exceptions);
+
+    void load_blurred_to_buffer(size_t frame_index = 0);
+
+    //inline const cv::Mat& matrix_buffer() const { return m_buffer; }
+    image_data buffer() const;
+
+
+private:
+    static constexpr float confThreshold = 0.7;
+    static constexpr float nmsThreshold = 0.4;
+    static constexpr int inpWidth = 1280;
+    static constexpr int inpHeight = 1280;
+
+
+    cv::VideoCapture m_capture;
+    std::unique_ptr<cv::dnn::Net> m_text_finder;
+    std::unique_ptr< tesseract::TessBaseAPI> m_ocr;//TODO: custom deleter that calls TessBaseAPI::End()
+
+    cv::Mat m_current_frame;
+    cv::Mat m_buffer;
+
+    std::vector<DetectedRect> m_currently_detected;
+
+
+
+    static void decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh,
+        std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences);
+};
+
+
+void core_api::Blurer::BlurerImpl::init()
 {
     cv::String model = "frozen_east_text_detection.pb";
     m_text_finder = std::make_unique<cv::dnn::Net>(cv::dnn::readNet(model));
@@ -13,7 +70,7 @@ void core_api::Blurer::init()
     m_ocr->Init(NULL, "eng", tesseract::OEM_LSTM_ONLY);
 }
 
-void core_api::Blurer::load(std::string_view filepath)
+void core_api::Blurer::BlurerImpl::load(std::string_view filepath)
 {
     //cap.open("james-deane-drifting-s15.jpg");
     m_capture.open(filepath.data());
@@ -22,7 +79,7 @@ void core_api::Blurer::load(std::string_view filepath)
     m_ocr->SetImage(m_current_frame.data, m_current_frame.cols, m_current_frame.rows, 3, m_current_frame.step);
 }
 
-const std::vector<DetectedRect>& core_api::Blurer::detect(detection_mode mode)
+const std::vector<DetectedRect>& core_api::Blurer::BlurerImpl::detect(detection_mode mode)
 {
     std::vector<cv::Mat> output;
     std::vector<cv::String> outputLayers(2);
@@ -62,12 +119,12 @@ const std::vector<DetectedRect>& core_api::Blurer::detect(detection_mode mode)
     return m_currently_detected;
 }
 
-void core_api::Blurer::add_exceptions(const std::vector<DetectedRect>& exceptions)
+void core_api::Blurer::BlurerImpl::add_exceptions(const std::vector<DetectedRect>& exceptions)
 {
     //TODO)
 }
 
-void core_api::Blurer::load_blurred_to_buffer(size_t frame_index)
+void core_api::Blurer::BlurerImpl::load_blurred_to_buffer(size_t frame_index)
 {
     m_buffer = m_current_frame;
     for (auto&[region, text] : m_currently_detected)
@@ -81,16 +138,16 @@ void core_api::Blurer::load_blurred_to_buffer(size_t frame_index)
 }
 
 
-image_data core_api::Blurer::buffer() const
+image_data core_api::Blurer::BlurerImpl::buffer() const
 {
-    std::vector<char> res;
+    std::vector<uint8_t> res;
     res.assign(m_buffer.data, m_buffer.data + m_buffer.total() * m_buffer.channels());
-    return { m_buffer.data, m_buffer.cols, m_buffer.rows };
+    return { std::move(res), m_buffer.cols, m_buffer.rows };
 }
 
 
 
-void core_api::Blurer::decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh, std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences)
+void core_api::Blurer::BlurerImpl::decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh, std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences)
 {
     detections.clear();
     CV_Assert(scores.dims == 4); CV_Assert(geometry.dims == 4); CV_Assert(scores.size[0] == 1);
@@ -129,4 +186,41 @@ void core_api::Blurer::decode(const cv::Mat& scores, const cv::Mat& geometry, fl
             confidences.push_back(score);
         }
     }
+}
+
+core_api::Blurer::Blurer() : m_impl(std::make_unique<BlurerImpl>()) {}
+
+void core_api::Blurer::init()
+{
+    m_impl->init();
+}
+
+void core_api::Blurer::load(std::string_view filepath)
+{
+    m_impl->load(filepath);
+}
+
+void core_api::Blurer::detect(detection_mode mode)
+{
+    m_impl->detect(mode);
+}
+
+//const std::vector<DetectedRect>& core_api::Blurer::currently_detected() const
+//{
+//    return m_impl->currently_detected();
+//}
+
+void core_api::Blurer::add_exceptions(const std::vector<DetectedRect>& exceptions)
+{
+    m_impl->add_exceptions(exceptions);
+}
+
+void core_api::Blurer::load_blurred_to_buffer(size_t frame_index)
+{
+    m_impl->load_blurred_to_buffer(frame_index);
+}
+
+image_data core_api::Blurer::buffer() const
+{
+    return m_impl->buffer();
 }
