@@ -72,7 +72,6 @@ void core_api::Blurer::BlurerImpl::init()
 
 void core_api::Blurer::BlurerImpl::load(std::string_view filepath)
 {
-    //cap.open("james-deane-drifting-s15.jpg");
     m_capture.open(filepath.data());
     m_capture >> m_current_frame;
 
@@ -142,7 +141,7 @@ image_data core_api::Blurer::BlurerImpl::buffer() const
 {
     std::vector<uint8_t> res;
     res.assign(m_buffer.data, m_buffer.data + m_buffer.total() * m_buffer.channels());
-    return { std::move(res), m_buffer.cols, m_buffer.rows };
+    return { res, m_buffer.cols, m_buffer.rows };
 }
 
 
@@ -187,6 +186,9 @@ void core_api::Blurer::BlurerImpl::decode(const cv::Mat& scores, const cv::Mat& 
         }
     }
 }
+
+
+
 
 core_api::Blurer::Blurer() : m_impl(new BlurerImpl()) {}
 

@@ -10,7 +10,7 @@
 #include <vector>
 #include <array>
 
-#include "C:/Users/1voic/source/Skylum/final_core/src/Blurer.h"
+#include "../../final_core/src/Blurer.h"
 
 
 void decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh,
@@ -167,18 +167,23 @@ int test_abstract()
 	core_api::Blurer blurer;
 	blurer.init();
 
-	blurer.load("rx7_license_plate.png");
+    blurer.load("rx7_license_plate.png");
+    //blurer.load("james-deane-drifting-s15.jpg");
+    //blurer.load("book.jpeg");
+
 	blurer.detect();
 	blurer.load_blurred_to_buffer();
 
 	static const std::string kWinName = "TEST";
 	cv::namedWindow(kWinName, cv::WINDOW_NORMAL);
+
+    auto data = blurer.buffer();
+    cv::Mat frame{ data.height,  data.width, CV_8UC3, (void*)data.data.data() };
     while (true)
     {
-        cv::imshow(kWinName, blurer.matrix_buffer());
+        cv::imshow(kWinName, frame);
         cv::waitKey();
     }
-	
 
 	return 0;
 }

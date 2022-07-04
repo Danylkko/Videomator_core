@@ -47,7 +47,7 @@ extern "C++"
 
 			enum class detection_mode { all, license_plates_only };
 
-			void init(); 
+			void init();
 
 			void load(std::string filepath); 
 
@@ -58,7 +58,7 @@ extern "C++"
 
 			void load_blurred_to_buffer(size_t frame_index = 0);
 
-			//inline const cv::Mat& matrix_buffer() const { return m_buffer; }
+			//inline const cv::Mat& matrix_buffer() const { return m_impl->matrix_buffer(); }
 			image_data buffer() const;
 
 		private:
@@ -66,7 +66,6 @@ extern "C++"
 
 			BlurerImpl* m_impl;
 		};
-
 	}
 
 }
