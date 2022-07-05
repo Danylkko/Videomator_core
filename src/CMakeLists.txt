@@ -9,15 +9,19 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 set(SOURCE_API ${CMAKE_SOURCE_DIR}/src/Blurer.cpp ${CMAKE_SOURCE_DIR}/src/Blurer.h)
+set(${CMAKE_TOOLCHAIN_FILE} "build/conan_toolchain.cmake")
+
 
 include(${CMAKE_SOURCE_DIR}/conanbuildinfo.cmake)
+set(CONAN_DISABLE_CHECK_COMPILER TRUE)
 conan_basic_setup()
 
 
 add_library(CORE_API SHARED ${SOURCE_API})
+target_link_libraries(CORE_API PUBLIC ${CONAN_LIBS})
+
 target_compile_features(CORE_API PRIVATE cxx_std_20)
 
-target_link_libraries(CORE_API PUBLIC ${CONAN_LIBS})
 
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.10")

@@ -31,7 +31,7 @@ extern "C++"
 	{
 		struct DetectedRect;
 
-		struct EXPORT image_data
+		struct image_data
 		{
 			std::vector<uint8_t> data;
 			int32_t width;
