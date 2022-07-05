@@ -49,7 +49,7 @@ extern "C++"
 
 			void init();
 
-			void load(std::string filepath); 
+			void load(const char* filepath); 
 
 			void detect(detection_mode mode = detection_mode::all); 
 			//const std::vector<DetectedRect>& currently_detected() const; 

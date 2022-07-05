@@ -202,7 +202,7 @@ void core_api::Blurer::init()
     m_impl->init();
 }
 
-void core_api::Blurer::load(std::string filepath)
+void core_api::Blurer::load(const char* filepath)
 {
     m_impl->load(filepath);
 }
