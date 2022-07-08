@@ -66,8 +66,16 @@ void core_api::Blurer::BlurerImpl::init()
     cv::String model = "frozen_east_text_detection.pb";
     m_text_finder = std::make_unique<cv::dnn::Net>(cv::dnn::readNet(model));
 
+
     m_ocr = std::make_unique<tesseract::TessBaseAPI>(tesseract::TessBaseAPI());
-    m_ocr->Init(NULL, "eng", tesseract::OEM_LSTM_ONLY);
+    //m_ocr->Init(NULL, "eng", tesseract::OEM_LSTM_ONLY);
+
+    if (m_ocr->Init(NULL, "eng", tesseract::OEM_LSTM_ONLY)) 
+    {
+        std::cerr << "Could not initialize tesseract.\n";
+        exit(1);
+    }
+
 }
 
 void core_api::Blurer::BlurerImpl::load(const char* filepath)
@@ -129,10 +137,20 @@ void core_api::Blurer::BlurerImpl::load_blurred_to_buffer(size_t frame_index)
     for (auto&[region, text] : m_currently_detected)
     {
         cv::Mat blured_region;
-        cv::GaussianBlur(m_current_frame(region), blured_region, cv::Size(0, 0), 4);
+        try
+        {
+            cv::GaussianBlur(m_current_frame(region), blured_region, cv::Size(0, 0), 4);
 
+
+            blured_region.copyTo(m_buffer(region));
+        }
+        catch (std::exception& e)
+        {
+            std::cout << "\n\n\n\n\n\n\n";
+            std::cout << e.what() << std::endl;
+            std::cout << "\n\n\n\n\n\n\n";
+        }
         
-        blured_region.copyTo(m_buffer(region));
     }
 }
 

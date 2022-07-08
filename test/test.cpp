@@ -167,7 +167,7 @@ int test_abstract()
 	core_api::Blurer blurer;
 	blurer.init();
 
-    blurer.load("rx7_license_plate.png");
+    blurer.load("yoda.jpg");
     //blurer.load("james-deane-drifting-s15.jpg");
     //blurer.load("book.jpeg");
 
