@@ -25,7 +25,7 @@ class core_api::Blurer::BlurerImpl
 public:
     void init();
 
-    void load(std::string_view filepath);
+    void load(const char* filepath);
 
     const std::vector<DetectedRect>& detect(Blurer::detection_mode mode = Blurer::detection_mode::all);
     const std::vector<DetectedRect>& currently_detected() const;
@@ -70,9 +70,9 @@ void core_api::Blurer::BlurerImpl::init()
     m_ocr->Init(NULL, "eng", tesseract::OEM_LSTM_ONLY);
 }
 
-void core_api::Blurer::BlurerImpl::load(std::string_view filepath)
+void core_api::Blurer::BlurerImpl::load(const char* filepath)
 {
-    m_capture.open(filepath.data());
+    m_capture.open(filepath);
     m_capture >> m_current_frame;
 
     m_ocr->SetImage(m_current_frame.data, m_current_frame.cols, m_current_frame.rows, 3, m_current_frame.step);
@@ -110,8 +110,8 @@ const std::vector<DetectedRect>& core_api::Blurer::BlurerImpl::detect(detection_
         m_ocr->SetRectangle(normalized_bbox.x, normalized_bbox.y, normalized_bbox.width, normalized_bbox.height);
         m_ocr->SetSourceResolution(2000);
 
-        //std::string outText = m_ocr->GetUTF8Text();
-        detected.push_back({ normalized_bbox, m_ocr->GetUTF8Text() });
+        std::string outText = m_ocr->GetUTF8Text();
+        detected.push_back({ normalized_bbox,  outText });
     }
 
     m_currently_detected = std::move(detected);
