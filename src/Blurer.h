@@ -1,6 +1,10 @@
 #pragma once
 
 #ifdef _WIN64
+
+#define EXTERN_BEGIN extern "C++" {
+#define EXTERN_END }
+
 #ifdef BUILD_DLL
 
 #define EXPORT __declspec(dllexport)
@@ -13,11 +17,14 @@
 #else
 
 #define EXPORT
+
+#define EXTERN_BEGIN 
+#define EXTERN_END 
+
 #endif
 
 
-extern "C++"
-{
+EXTERN_BEGIN
 	namespace core_api
 	{
 		struct DetectedRect;
@@ -57,5 +64,4 @@ extern "C++"
 			BlurerImpl* m_impl;
 		};
 	}
-
-}
+EXTERN_END
