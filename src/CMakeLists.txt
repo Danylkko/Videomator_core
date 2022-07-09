@@ -13,7 +13,7 @@ set(SOURCE_API ${CMAKE_SOURCE_DIR}/src/Blurer.cpp ${CMAKE_SOURCE_DIR}/src/Blurer
 set(${CMAKE_TOOLCHAIN_FILE} "build/conan_toolchain.cmake")
 
 
-include(${CMAKE_SOURCE_DIR}/conanbuildinfo.cmake)
+include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 set(CONAN_DISABLE_CHECK_COMPILER TRUE)
 conan_basic_setup()
 
