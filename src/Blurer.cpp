@@ -8,7 +8,16 @@
 #include <tesseract/baseapi.h>
 #include <leptonica/allheaders.h>
 
+
+#include <string>
+#include <string_view>
+#include <array>
+#include <vector>
+#include <memory>
 #include <iostream>
+
+#include <cstdint>
+
 
 using namespace core_api;
 
@@ -18,6 +27,7 @@ struct core_api::DetectedRect
     cv::Rect bbox;
     std::string text;
 };
+
 
 
 class core_api::Blurer::BlurerImpl
@@ -35,7 +45,7 @@ public:
     void load_blurred_to_buffer(size_t frame_index = 0);
 
     //inline const cv::Mat& matrix_buffer() const { return m_buffer; }
-    image_data buffer() const;
+    core_api::image_data buffer() const;
 
 
 private:
@@ -57,7 +67,7 @@ private:
 
 
     static void decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh,
-        std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences);
+    std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences);
 };
 
 
@@ -155,11 +165,9 @@ void core_api::Blurer::BlurerImpl::load_blurred_to_buffer(size_t frame_index)
 }
 
 
-image_data core_api::Blurer::BlurerImpl::buffer() const
+core_api::image_data core_api::Blurer::BlurerImpl::buffer() const
 {
-    std::vector<uint8_t> res;
-    res.assign(m_buffer.data, m_buffer.data + m_buffer.total() * m_buffer.channels());
-    return { res, m_buffer.cols, m_buffer.rows };
+    return { m_buffer.data, m_buffer.cols, m_buffer.rows };
 }
 
 
@@ -235,9 +243,13 @@ void core_api::Blurer::detect(detection_mode mode)
 //    return m_impl->currently_detected();
 //}
 
-void core_api::Blurer::add_exceptions(const std::vector<DetectedRect>& exceptions)
+void core_api::Blurer::add_exceptions(const DetectedRect* exceptions, size_t size)
 {
-    m_impl->add_exceptions(exceptions);
+    std::vector<DetectedRect> excepts(size);
+    for (int i = 0; i < size; i++)
+        excepts.push_back(exceptions[i]);
+
+    m_impl->add_exceptions(excepts);
 }
 
 void core_api::Blurer::load_blurred_to_buffer(size_t frame_index)

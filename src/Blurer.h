@@ -1,14 +1,5 @@
 #pragma once
 
-#include <string>
-#include <string_view>
-#include <array>
-#include <vector>
-#include <memory>
-
-#include <cstdint>
-
-
 #ifdef _WIN64
 #ifdef BUILD_DLL
 
@@ -21,7 +12,7 @@
 #endif
 #else
 
-#define #define EXPORT
+#define EXPORT
 #endif
 
 
@@ -33,11 +24,10 @@ extern "C++"
 
 		struct image_data
 		{
-			std::vector<uint8_t> data;
-			int32_t width;
-			int32_t height;
+			unsigned char* data;
+			int width;
+			int height;
 		};
-
 
 		class EXPORT Blurer
 		{
@@ -54,7 +44,7 @@ extern "C++"
 			void detect(detection_mode mode = detection_mode::all); 
 			//const std::vector<DetectedRect>& currently_detected() const; 
 
-			void add_exceptions(const std::vector<DetectedRect>& exceptions); 
+			void add_exceptions(const DetectedRect* exceptions, size_t size); 
 
 			void load_blurred_to_buffer(size_t frame_index = 0);
 

@@ -177,8 +177,8 @@ int test_abstract()
 	static const std::string kWinName = "TEST";
 	cv::namedWindow(kWinName, cv::WINDOW_NORMAL);
 
-    auto data = blurer.buffer();
-    cv::Mat frame{ data.height,  data.width, CV_8UC3, (void*)data.data.data() };
+    auto frame_buffer = blurer.buffer();
+    cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
     while (true)
     {
         cv::imshow(kWinName, frame);
