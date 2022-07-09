@@ -243,7 +243,7 @@ void core_api::Blurer::detect(detection_mode mode)
 //    return m_impl->currently_detected();
 //}
 
-void core_api::Blurer::add_exceptions(const DetectedRect* exceptions, size_t size)
+void core_api::Blurer::add_exceptions(const DetectedRect* exceptions, unsigned int size)
 {
     std::vector<DetectedRect> excepts(size);
     for (int i = 0; i < size; i++)
@@ -252,7 +252,7 @@ void core_api::Blurer::add_exceptions(const DetectedRect* exceptions, size_t siz
     m_impl->add_exceptions(excepts);
 }
 
-void core_api::Blurer::load_blurred_to_buffer(size_t frame_index)
+void core_api::Blurer::load_blurred_to_buffer(unsigned int frame_index)
 {
     m_impl->load_blurred_to_buffer(frame_index);
 }

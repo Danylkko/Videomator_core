@@ -44,9 +44,9 @@ extern "C++"
 			void detect(detection_mode mode = detection_mode::all); 
 			//const std::vector<DetectedRect>& currently_detected() const; 
 
-			void add_exceptions(const DetectedRect* exceptions, size_t size); 
+			void add_exceptions(const DetectedRect* exceptions, unsigned int size); 
 
-			void load_blurred_to_buffer(size_t frame_index = 0);
+			void load_blurred_to_buffer(unsigned int frame_index = 0);
 
 			//inline const cv::Mat& matrix_buffer() const { return m_impl->matrix_buffer(); }
 			image_data buffer() const;
