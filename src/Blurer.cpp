@@ -55,7 +55,7 @@ private:
 
 void FrameBlurer::init(const char* text_detector, const char* text_reader)
 {
-    cv::String model = "frozen_east_text_detection.pb";
+    cv::String model = text_detector;
     try
     {
         m_text_finder = std::make_unique<cv::dnn::Net>(cv::dnn::readNet(model));
@@ -132,6 +132,18 @@ cv::Mat FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode)
 
     return blurred;
 }
+
+class VideoStreamer
+{
+public:
+
+private:
+    cv::Mat m_stream_frame_buffer;
+
+    std::vector<cv::Mat>::const_iterator m_begin;
+
+
+};
 
 class VideoRenderer
 {

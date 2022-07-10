@@ -44,7 +44,7 @@ EXTERN_BEGIN
 
 			enum class detection_mode { all, license_plates_only };
 
-			void init();
+			void init(const char* east_path = "frozen_east_text_detection.pb", const char* tesseract_data_path = nullptr);
 
 			void load(const char* filepath); 
 
