@@ -41,13 +41,13 @@ public:
 
     cv::Mat forward(cv::Mat frame, Blurer::detection_mode mode);
 private:
-    static constexpr float confThreshold = 0.7;
-    static constexpr float nmsThreshold = 0.4;
-    static constexpr int inpWidth = 1280;
-    static constexpr int inpHeight = 1280;
+    static constexpr float confThreshold = 0.1;
+    static constexpr float nmsThreshold = 0.0;
+    static constexpr int inpWidth = 320;
+    static constexpr int inpHeight = 320;
 
     std::unique_ptr<cv::dnn::Net> m_text_finder;
-    std::unique_ptr< tesseract::TessBaseAPI> m_ocr;//TODO: custom deleter that calls TessBaseAPI::End()
+    std::unique_ptr< tesseract::TessBaseAPI> m_ocr;
 
     static void decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh,
         std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences);
@@ -84,7 +84,7 @@ cv::Mat FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode)
     outputLayers[0] = "feature_fusion/Conv_7/Sigmoid";
     outputLayers[1] = "feature_fusion/concat_3";
 
-    cv::Mat blob = cv::dnn::blobFromImage(frame, 1.0, cv::Size(inpWidth, inpHeight), cv::Scalar(123.68, 116.78, 103.94), true, false);
+    cv::Mat blob = cv::dnn::blobFromImage(frame, 1.0, cv::Size(inpWidth, inpHeight));
     m_text_finder->setInput(blob);
     m_text_finder->forward(output, outputLayers);
 
@@ -98,20 +98,32 @@ cv::Mat FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode)
     std::vector<int> indices;
     cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
 
-    m_ocr->SetImage(frame.data, frame.cols, frame.rows, 3, frame.step);
+    
     cv::Point2f ratio((float)frame.cols / inpWidth, (float)frame.rows / inpHeight);
     std::vector<DetectedRect> detected;
     for (auto index : indices)
     {
         cv::Rect bbox = boxes[index].boundingRect();
         cv::Rect normalized_bbox = cv::Rect{ int((float)bbox.x * ratio.x), int((float)bbox.y * ratio.y), int((float)bbox.width * ratio.x), int((float)bbox.height * ratio.y) };
+        std::string out_text;
 
-        m_ocr->SetRectangle(normalized_bbox.x, normalized_bbox.y, normalized_bbox.width, normalized_bbox.height);
-        m_ocr->SetSourceResolution(2000);
+        
 
-        std::string outText = m_ocr->GetUTF8Text();
-        detected.push_back({ normalized_bbox,  outText });
+        detected.push_back({ normalized_bbox,  out_text });
     }
+
+    if (mode != Blurer::detection_mode::all)
+    {
+       /* m_ocr->SetImage(frame.data, frame.cols, frame.rows, 3, frame.step);
+        for (auto& rect : detected)
+        {
+            m_ocr->SetRectangle(rect.bbox.x, rect.bbox.y, rect.bbox.width, rect.bbox.height);
+            m_ocr->SetSourceResolution(2000);
+
+            rect.text = m_ocr->GetUTF8Text();
+        }*/
+    }
+
 
 
     cv::Mat blurred = frame_copy;
@@ -133,15 +145,14 @@ cv::Mat FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode)
     return blurred;
 }
 
-class VideoStreamer
+class VideoStream
 {
 public:
 
 private:
-    cv::Mat m_stream_frame_buffer;
 
     std::vector<cv::Mat>::const_iterator m_begin;
-
+    std::vector<cv::Mat>::const_iterator m_end;
 
 };
 

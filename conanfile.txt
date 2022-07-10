@@ -7,6 +7,3 @@ tesseract/4.1.1
 cmake
 xcode
 
-
-[options]
-build_type=Release
