@@ -168,16 +168,18 @@ int test_abstract()
 	blurer.init();
 
     //blurer.load("yoda.jpg");
-    blurer.load("james-deane-drifting-s15.jpg");
+    blurer.load("C:\\Users\\1voic\\Downloads\\Trim.mp4");
     //blurer.load("book.jpeg");
+    blurer.start_render();
 
-	blurer.detect();
-	blurer.load_blurred_to_buffer();
+    blurer.save_rendered("D:\\Photos\\test\\test1.avi");
+
+	blurer.create_stream(0);
 
 	static const std::string kWinName = "TEST";
 	cv::namedWindow(kWinName, cv::WINDOW_NORMAL);
 
-    auto frame_buffer = blurer.buffer();
+    auto frame_buffer = blurer.stream_buffer();
     cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
     while (true)
     {

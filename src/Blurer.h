@@ -48,17 +48,25 @@ EXTERN_BEGIN
 
 			void load(const char* filepath); 
 
-			void detect(detection_mode mode = detection_mode::all); 
+			void start_render(detection_mode mode = detection_mode::all);
+
+			//void detect(detection_mode mode = detection_mode::all); 
 			//const std::vector<DetectedRect>& currently_detected() const; 
 
-			void add_exceptions(const DetectedRect* exceptions, unsigned int size); 
+			//void add_exceptions(const DetectedRect* exceptions, unsigned int size); 
 
-			void load_blurred_to_buffer(unsigned int frame_index = 0);
+			void create_stream(unsigned int frame_index = 0);
+			void play_stream();
+			void pause_stream();
 
-			//inline const cv::Mat& matrix_buffer() const { return m_impl->matrix_buffer(); }
-			image_data buffer() const;
+			image_data stream_buffer() const;
+
+
+			void save_rendered(const char* filepath);
 
 		private:
+			
+
 			class BlurerImpl;
 
 			BlurerImpl* m_impl;
