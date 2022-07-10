@@ -254,7 +254,7 @@ void VideoRenderer::wait_render_finish()
 class core_api::Blurer::BlurerImpl
 {
 public:
-    void init();
+    void init(const char* east_path, const char* tesseract_data_path);
 
     void load(const char* filepath);
 
@@ -296,7 +296,7 @@ private:
 };
 
 
-void core_api::Blurer::BlurerImpl::init()
+void core_api::Blurer::BlurerImpl::init(const char* east_path, const char* tesseract_data_path)
 {
     //cv::String model = "frozen_east_text_detection.pb";
     //try
@@ -318,7 +318,7 @@ void core_api::Blurer::BlurerImpl::init()
     //    std::cerr << "Could not initialize tesseract.\n";
     //    exit(1);
     //}
-    m_renderer.init_blurer("frozen_east_text_detection.pb");
+    m_renderer.init_blurer(east_path, tesseract_data_path);
 }
 
 void core_api::Blurer::BlurerImpl::start_render(detection_mode mode)
@@ -471,9 +471,9 @@ core_api::Blurer::~Blurer()
     delete m_impl;
 }
 
-void core_api::Blurer::init()
+void core_api::Blurer::init(const char* east_path, const char* tesseract_data_path)
 {
-    m_impl->init();
+    m_impl->init(east_path, tesseract_data_path);
 }
 
 void core_api::Blurer::load(const char* filepath)
