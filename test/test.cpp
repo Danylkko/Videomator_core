@@ -164,28 +164,40 @@ int test_raw()
 
 int test_abstract()
 {
+    static const std::string kWinName = "TEST";
+    cv::namedWindow(kWinName, cv::WINDOW_NORMAL);
+
 	core_api::Blurer blurer;
 	blurer.init();
 
     //blurer.load("yoda.jpg");
-    blurer.load("C:\\Users\\1voic\\Downloads\\Trim.mp4");
+    blurer.load("C:\\Users\\1voic\\Downloads\\Trim1.mp4");
     //blurer.load("book.jpeg");
     blurer.start_render();
 
-    blurer.save_rendered("D:\\Photos\\test\\test1.avi");
-
 	blurer.create_stream(0);
-
-	static const std::string kWinName = "TEST";
-	cv::namedWindow(kWinName, cv::WINDOW_NORMAL);
-
-    auto frame_buffer = blurer.stream_buffer();
-    cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
-    while (true)
+    blurer.play_stream(blurer.get_fps());
+    int i = 0;
+    while (i < 1000)
     {
-        cv::imshow(kWinName, frame);
-        cv::waitKey();
+        auto frame_buffer = blurer.stream_buffer();
+        cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
+        if(!frame.empty())
+            cv::imshow(kWinName, frame);
+        cv::waitKey(2);
+        std::cout << i++ << std::endl;
+        if (i == 500)
+        {
+            blurer.pause_stream();
+            blurer.play_stream(blurer.get_fps());
+        }
+            
     }
+
+
+
+    
+    blurer.save_rendered("D:\\Photos\\test\\test1.avi");
 
 	return 0;
 }

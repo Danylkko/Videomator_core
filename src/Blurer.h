@@ -47,6 +47,8 @@ EXTERN_BEGIN
 			void init(const char* east_path = "frozen_east_text_detection.pb", const char* tesseract_data_path = nullptr);
 
 			void load(const char* filepath); 
+			int get_fps();
+			int get_frame_count();
 
 			void start_render(detection_mode mode = detection_mode::all);
 
@@ -56,7 +58,7 @@ EXTERN_BEGIN
 			//void add_exceptions(const DetectedRect* exceptions, unsigned int size); 
 
 			void create_stream(unsigned int frame_index = 0);
-			void play_stream();
+			void play_stream(int fps);
 			void pause_stream();
 
 			image_data stream_buffer() const;
