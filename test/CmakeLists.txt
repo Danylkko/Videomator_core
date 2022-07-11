@@ -10,8 +10,8 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_library(CORE_LIB SHARED IMPORTED)
 set_target_properties(CORE_LIB PROPERTIES 
-    IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/src/bin/CORE_API.dll"
-    IMPORTED_IMPLIB "${CMAKE_BINARY_DIR}/src/lib/CORE_API.lib"
+    IMPORTED_LOCATION "${CMAKE_BINARY_DIR}/src/bin/CORE_API_d.dll"
+    IMPORTED_IMPLIB "${CMAKE_BINARY_DIR}/src/lib/CORE_API_d.lib"
 )
 
 include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
