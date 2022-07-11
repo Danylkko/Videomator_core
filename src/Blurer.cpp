@@ -58,7 +58,7 @@ private:
 class VideoStream
 {
 public:
-    inline VideoStream(std::vector<cv::Mat>::const_iterator start_frame, std::vector<cv::Mat>::const_iterator end) :m_iter(start_frame), m_end(end) { m_buffer = cv::Mat(); }
+    inline VideoStream(std::vector<cv::Mat>::const_iterator start_frame, std::vector<cv::Mat>::const_iterator end) :m_iter(start_frame), m_end(end) { m_buffer = *m_iter; }
     inline ~VideoStream() { pause(); }
 
     inline const cv::Mat& buffer() { std::lock_guard<std::mutex> guard(buffer_lock); return m_buffer; }
