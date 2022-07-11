@@ -116,7 +116,8 @@ class VideoRenderer
 {
 public:
     inline void init_blurer(const char* text_detector, const char* text_reader = nullptr) { m_blurer.init(text_detector, text_reader); }
-    inline void set_source(cv::VideoCapture& capture) { m_video = &capture; }
+    void set_source(cv::VideoCapture& capture);
+    void reset();
 
     double get_source_fps() const { return m_video->get(cv::CAP_PROP_FPS); }
     int get_source_frames() const { return static_cast<int>(m_video->get(cv::CAP_PROP_FRAME_COUNT)); }
@@ -133,7 +134,8 @@ private:
 
     std::mutex m_frames_lock;
     std::vector<cv::Mat> m_proccesed_frames;
-    std::vector<cv::Mat>::const_iterator m_selected_frame;
+    //std::vector<cv::Mat>::const_iterator m_selected_frame;
+    bool m_render_active = false;
 
     FrameBlurer m_blurer;
 
@@ -148,6 +150,22 @@ private:
 
 };
 
+
+void VideoRenderer::set_source(cv::VideoCapture& video)
+{
+    m_render_active = false;
+    for (auto& thread : m_rendering_threads)
+        thread.join();
+
+    m_proccesed_frames.clear();
+    m_writer.release();
+
+    m_video = &video;
+}
+void VideoRenderer::reset()
+{
+
+}
 
 
 class core_api::Blurer::BlurerImpl
@@ -193,6 +211,8 @@ void core_api::Blurer::BlurerImpl::start_render(detection_mode mode)
 
 void core_api::Blurer::BlurerImpl::load(const char* filepath)
 {
+    m_stream.reset();
+
     m_capture.open(filepath);
     if (!m_capture.isOpened())
     {
@@ -438,7 +458,7 @@ void FrameBlurer::decode(const cv::Mat& scores, const cv::Mat& geometry, float s
 
 void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_count, uint32_t offset)
 {
-    for (unsigned int i = 0; i < frame_count; i++)
+    for (unsigned int i = 0; i < frame_count && m_render_active; i++)
     {
         cv::Mat frame;
         *m_video >> frame;
@@ -449,6 +469,8 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
 
 void VideoRenderer::render_async(Blurer::detection_mode mode)
 {
+
+    m_render_active = true;
     int frame_count = get_source_frames();
     m_proccesed_frames = std::vector<cv::Mat>(frame_count);
 
