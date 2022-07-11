@@ -50,12 +50,9 @@ EXTERN_BEGIN
 			int get_fps();
 			int get_frame_count();
 
+			bool done_rendering();
+
 			void start_render(detection_mode mode = detection_mode::all);
-
-			//void detect(detection_mode mode = detection_mode::all); 
-			//const std::vector<DetectedRect>& currently_detected() const; 
-
-			//void add_exceptions(const DetectedRect* exceptions, unsigned int size); 
 
 			void create_stream(unsigned int frame_index = 0);
 			void play_stream(int fps);

@@ -186,33 +186,40 @@ int test_abstract()
 	blurer.init();
 
     //blurer.load("yoda.jpg");
-    blurer.load("C:\\Users\\1voic\\Downloads\\Trim1.mp4");
+    blurer.load("C:\\Users\\1voic\\Downloads\\FH5_DAY_TEST.mp4");
     //blurer.load("book.jpeg");
     blurer.start_render();
 
-	blurer.create_stream(10);
+	blurer.create_stream(0);
     blurer.play_stream(blurer.get_fps());
-    int i = 0;
-    while (i < 501)
+    while (!blurer.done_rendering())
     {
         auto frame_buffer = blurer.stream_buffer();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
         if(!frame.empty())
             cv::imshow(kWinName, frame);
         cv::waitKey(2);
-        std::cout << i++ << std::endl;
-        if (i == 500)
-        {
-            blurer.pause_stream();
-            blurer.play_stream(blurer.get_fps());
-        }
-            
     }
 
     blurer.create_stream(0);
     blurer.play_stream(blurer.get_fps());
-    i = 0;
-    while(i++ < 300)
+    for(int i = 0; i<blurer.get_frame_count(); i++)
+    {
+        int frame_delay = 1000 / blurer.get_fps();
+        auto frame_buffer = blurer.stream_buffer();
+        cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
+        if (!frame.empty())
+            cv::imshow(kWinName, frame);
+        cv::waitKey(frame_delay);
+    }
+    blurer.save_rendered("D:\\Photos\\test\\test1.mp4");
+
+    blurer.load("C:\\Users\\1voic\\Downloads\\FH5_TEST.mp4");
+    blurer.start_render();
+
+    blurer.create_stream(0);
+    blurer.play_stream(blurer.get_fps());
+    while (!blurer.done_rendering())
     {
         auto frame_buffer = blurer.stream_buffer();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
@@ -220,14 +227,7 @@ int test_abstract()
             cv::imshow(kWinName, frame);
         cv::waitKey(2);
     }
-
-    blurer.save_rendered("D:\\Photos\\test\\test1.avi");
-    blurer.load("C:\\Users\\1voic\\Downloads\\Trim.mp4");
-
-
-    blurer.start_render();
-
-    blurer.save_rendered("D:\\Photos\\test\\test1.avi");
+    blurer.save_rendered("D:\\Photos\\test\\test2.mp4");
 
 	return 0;
 }
@@ -236,7 +236,7 @@ int test_abstract()
 int main()
 {
     //return test_raw();
-    test_memory_leaks();
+    //test_memory_leaks();
 
     return test_abstract();
 }

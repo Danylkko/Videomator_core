@@ -10,13 +10,12 @@
 
 
 #include <string>
-#include <string_view>
-#include <array>
 #include <vector>
 #include <memory>
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <algorithm>
 
 #include <cstdint>
 
@@ -38,13 +37,12 @@ public:
 
     void init(const char* text_detector, const char* text_reader);
 
-
     cv::Mat forward(cv::Mat frame, Blurer::detection_mode mode);
 private:
-    static constexpr float confThreshold = 0.25f;
+    static constexpr float confThreshold = 0.975f;
     static constexpr float nmsThreshold = 0.6f;
-    static constexpr int inpWidth = 640;
-    static constexpr int inpHeight = 640;
+    static constexpr int inpWidth = 480;
+    static constexpr int inpHeight = 480;
 
     std::unique_ptr<cv::dnn::Net> m_text_finder;
     std::unique_ptr< tesseract::TessBaseAPI> m_ocr;
@@ -178,6 +176,7 @@ public:
     inline int get_fps()const { return m_renderer.get_source_fps(); }
     inline int get_frame_count()const { return m_renderer.get_source_frames(); }
 
+    bool done_rendering() const;
 
     void start_render(detection_mode mode);
 
@@ -198,6 +197,12 @@ private:
 
     std::unique_ptr<VideoStream> m_stream = nullptr;
 };
+
+bool core_api::Blurer::BlurerImpl::done_rendering() const
+{
+    int frames = std::count_if(m_renderer.frames().begin(), m_renderer.frames().end(), [](const cv::Mat& mat) { return !mat.empty(); });
+    return frames == get_frame_count();
+}
 
 
 void core_api::Blurer::BlurerImpl::init(const char* east_path, const char* tesseract_data_path)
@@ -286,6 +291,11 @@ int core_api::Blurer::get_frame_count()
     return m_impl->get_frame_count();
 }
 
+bool core_api::Blurer::done_rendering()
+{
+    return m_impl->done_rendering();
+}
+
 void core_api::Blurer::start_render(detection_mode mode)
 {
     m_impl->start_render(mode);
@@ -335,7 +345,6 @@ void FrameBlurer::init(const char* text_detector, const char* text_reader)
     if (m_ocr->Init(text_reader ? text_reader : NULL, "eng", tesseract::OEM_LSTM_ONLY))
     {
         std::cerr << "Could not initialize tesseract.\n";
-        exit(1);
     }
 }
 
@@ -505,7 +514,7 @@ void VideoRenderer::save(const char* path)
 {
     
     using namespace std::chrono_literals;
-    cv::VideoWriter output(path, cv::VideoWriter::fourcc('M', 'J', 'P', 'G'), get_source_fps(), cv::Size(m_video->get(cv::CAP_PROP_FRAME_WIDTH), m_video->get(cv::CAP_PROP_FRAME_HEIGHT)));
+    cv::VideoWriter output(path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), get_source_fps(), cv::Size(m_video->get(cv::CAP_PROP_FRAME_WIDTH), m_video->get(cv::CAP_PROP_FRAME_HEIGHT)));
 
     for (auto& frame : m_proccesed_frames)
     {
