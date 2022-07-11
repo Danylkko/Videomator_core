@@ -61,7 +61,8 @@ public:
     inline VideoStream(std::vector<cv::Mat>::const_iterator start_frame, std::vector<cv::Mat>::const_iterator end) :m_iter(start_frame), m_end(end) { m_buffer = *m_iter; }
     inline ~VideoStream() { pause(); }
 
-    inline const cv::Mat& buffer() { std::lock_guard<std::mutex> guard(buffer_lock); return m_buffer; }
+    const cv::Mat& buffer();
+    
 
     void play(uint32_t fps);
 
@@ -526,4 +527,13 @@ void VideoRenderer::wait_render_finish()
 {
     for (auto& thread : m_rendering_threads)
         thread.join();
+}
+
+const cv::Mat& VideoStream::buffer()
+{
+    std::lock_guard<std::mutex> guard(buffer_lock); 
+    #ifndef _WIN32
+        cv::cvtColor(m_buffer, m_buffer, cv::COLOR_BGR2RGB);
+    #endif
+    return m_buffer;
 }
