@@ -589,6 +589,7 @@ const cv::Mat& VideoStream::buffer()
 {
     std::lock_guard<std::mutex> guard(buffer_lock); 
     #ifndef _WIN32
+        if(!m_buffer.empty())
         cv::cvtColor(m_buffer, m_buffer, cv::COLOR_BGR2RGB);
     #endif
     return m_buffer;
