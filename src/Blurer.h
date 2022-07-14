@@ -36,6 +36,8 @@ EXTERN_BEGIN
 			int height;
 		};
 
+		using OnFrameCallback = void (*)(image_data);
+
 		class EXPORT Blurer
 		{
 		public:
@@ -60,6 +62,10 @@ EXTERN_BEGIN
 
 			image_data stream_buffer() const;
 
+			void set_on_update_callback(OnFrameCallback callback);
+			void reset_on_update_callback();
+
+			void stream_load_next();
 
 			void save_rendered(const char* filepath);
 

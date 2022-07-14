@@ -52,7 +52,6 @@ private:
 };
 
 
-
 class VideoStream
 {
 public:
@@ -61,6 +60,10 @@ public:
 
     const cv::Mat& buffer();
     
+    void set_callback(OnFrameCallback callback);
+    inline void remove_callback() { m_callback_fn = nullptr; }
+
+    void load_next_frame();
 
     void play(uint32_t fps);
 
@@ -73,6 +76,8 @@ private:
     std::vector<cv::Mat>::const_iterator m_iter;
     std::vector<cv::Mat>::const_iterator m_end;
 
+    OnFrameCallback m_callback_fn = nullptr;
+
 
     std::unique_ptr<std::thread> m_running_thread = nullptr;
 
@@ -80,6 +85,22 @@ private:
 
     void increment_iterator(std::chrono::milliseconds wait_time);
 };
+
+void VideoStream::load_next_frame()
+{
+    if (!(m_iter + 1)->empty())
+    {
+        m_iter++;
+
+        std::lock_guard guard(buffer_lock);
+        m_buffer = *m_iter;
+    }
+}
+
+void VideoStream::set_callback(OnFrameCallback callback)
+{
+    m_callback_fn = callback;
+}
 
 void VideoStream::play(uint32_t fps)
 {
@@ -100,10 +121,14 @@ void VideoStream::increment_iterator(std::chrono::milliseconds wait_time)
     {
         if (!m_iter->empty())
         {
+            if (m_callback_fn)
+            {
+                m_callback_fn(image_data{ m_iter->data, m_iter->cols, m_iter->rows });
+            }
+
             std::lock_guard guard(buffer_lock);
             m_buffer = *m_iter;
             m_iter++;
-
         }
         std::this_thread::sleep_for(wait_time);
     }
@@ -185,6 +210,11 @@ public:
     void start_stream(size_t frame_index = 0);
     void play_stream(int fps);
     void pause_stream();
+
+    inline void set_on_update_callback(OnFrameCallback callback) { m_stream->set_callback(callback); }
+    inline void reset__on_update_callback() { m_stream->remove_callback(); }
+
+    inline void stream_load_next() { m_stream->load_next_frame(); }
 
     core_api::image_data buffer() const;
 
@@ -322,6 +352,23 @@ image_data core_api::Blurer::stream_buffer() const
 {
     return m_impl->buffer();
 }
+
+
+void core_api::Blurer::set_on_update_callback(OnFrameCallback callback)
+{
+    m_impl->set_on_update_callback(callback);
+}
+
+void core_api::Blurer::reset_on_update_callback()
+{
+    m_impl->reset__on_update_callback();
+}
+
+void core_api::Blurer::stream_load_next()
+{
+    m_impl->stream_load_next();
+}
+
 
 void core_api::Blurer::save_rendered(const char* filepath)
 {

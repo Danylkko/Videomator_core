@@ -177,6 +177,16 @@ void test_memory_leaks()
     }
 }
 
+void callback1(core_api::image_data data)
+{
+    std::cout << data.height << std::endl;
+}
+
+void callback2(core_api::image_data data)
+{
+    std::cout << data.width << std::endl;
+}
+
 int test_abstract()
 {
     static const std::string kWinName = "TEST";
@@ -186,14 +196,16 @@ int test_abstract()
 	blurer.init();
 
     //blurer.load("yoda.jpg");
-    blurer.load("C:\\Users\\1voic\\Downloads\\FH5_DAY_TEST.mp4");
     //blurer.load("book.jpeg");
+    blurer.load("C:\\Users\\1voic\\Downloads\\FH5_DAY_TEST.mp4");
     blurer.start_render();
 
 	blurer.create_stream(0);
-    blurer.play_stream(blurer.get_fps());
+    blurer.set_on_update_callback(callback1);
+    //blurer.play_stream(blurer.get_fps());
     while (!blurer.done_rendering())
     {
+        blurer.stream_load_next();
         auto frame_buffer = blurer.stream_buffer();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
         if(!frame.empty())
@@ -214,20 +226,20 @@ int test_abstract()
     }
     blurer.save_rendered("D:\\Photos\\test\\test1.mp4");
 
-    blurer.load("C:\\Users\\1voic\\Downloads\\FH5_TEST.mp4");
-    blurer.start_render();
+    //blurer.load("C:\\Users\\1voic\\Downloads\\FH5_TEST.mp4");
+    //blurer.start_render();
 
-    blurer.create_stream(0);
-    blurer.play_stream(blurer.get_fps());
-    while (!blurer.done_rendering())
-    {
-        auto frame_buffer = blurer.stream_buffer();
-        cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
-        if (!frame.empty())
-            cv::imshow(kWinName, frame);
-        cv::waitKey(2);
-    }
-    blurer.save_rendered("D:\\Photos\\test\\test2.mp4");
+    //blurer.create_stream(0);
+    //blurer.play_stream(blurer.get_fps());
+    //while (!blurer.done_rendering())
+    //{
+    //    auto frame_buffer = blurer.stream_buffer();
+    //    cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
+    //    if (!frame.empty())
+    //        cv::imshow(kWinName, frame);
+    //    cv::waitKey(2);
+    //}
+    //blurer.save_rendered("D:\\Photos\\test\\test2.mp4");
 
 	return 0;
 }
