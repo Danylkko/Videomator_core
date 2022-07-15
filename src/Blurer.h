@@ -66,6 +66,7 @@ EXTERN_BEGIN
 			void reset_on_update_callback();
 
 			void stream_load_next();
+			void stream_load_next_wait();
 
 			void save_rendered(const char* filepath);
 

@@ -64,6 +64,7 @@ public:
     inline void remove_callback() { m_callback_fn = nullptr; }
 
     void load_next_frame();
+    void load_next_frame_wait();
 
     void play(uint32_t fps);
 
@@ -95,6 +96,19 @@ void VideoStream::load_next_frame()
         std::lock_guard guard(buffer_lock);
         m_buffer = *m_iter;
     }
+}
+
+void VideoStream::load_next_frame_wait()
+{
+    using namespace std::chrono_literals;
+    if (m_iter == m_end - 1)
+        return;
+    while ((m_iter + 1)->empty())
+        std::this_thread::sleep_for(20ms);
+
+    m_iter++;
+    std::lock_guard guard(buffer_lock);
+    m_buffer = *m_iter;
 }
 
 void VideoStream::set_callback(OnFrameCallback callback)
@@ -186,6 +200,7 @@ void VideoRenderer::set_source(cv::VideoCapture& video)
 
     m_video = &video;
 }
+
 void VideoRenderer::reset()
 {
 
@@ -215,6 +230,7 @@ public:
     inline void reset__on_update_callback() { m_stream->remove_callback(); }
 
     inline void stream_load_next() { m_stream->load_next_frame(); }
+    inline void stream_load_next_wait() { m_stream->load_next_frame_wait(); }
 
     core_api::image_data buffer() const;
 
@@ -367,6 +383,11 @@ void core_api::Blurer::reset_on_update_callback()
 void core_api::Blurer::stream_load_next()
 {
     m_impl->stream_load_next();
+}
+
+void core_api::Blurer::stream_load_next_wait()
+{
+    m_impl->stream_load_next_wait();
 }
 
 
@@ -590,7 +611,7 @@ const cv::Mat& VideoStream::buffer()
     std::lock_guard<std::mutex> guard(buffer_lock); 
     #ifndef _WIN32
         if(!m_buffer.empty())
-        cv::cvtColor(m_buffer, m_buffer, cv::COLOR_BGR2RGB);
+            cv::cvtColor(m_buffer, m_buffer, cv::COLOR_BGR2RGB);
     #endif
     return m_buffer;
 }

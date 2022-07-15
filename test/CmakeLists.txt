@@ -18,6 +18,7 @@ include(${CMAKE_BINARY_DIR}/conanbuildinfo.cmake)
 set(CONAN_DISABLE_CHECK_COMPILER TRUE)
 conan_basic_setup()
 
+
 set(SOURCE_TEST test.cpp)
 
 add_executable(CORE_TEST ${SOURCE_TEST})
@@ -25,6 +26,7 @@ target_compile_features(CORE_TEST PRIVATE cxx_std_20)
 
 target_link_libraries(CORE_TEST PUBLIC ${CONAN_LIBS})
 target_link_libraries(CORE_TEST PUBLIC CORE_LIB)
+
 
 
 FILE(COPY ${CMAKE_SOURCE_DIR}/res/james-deane-drifting-s15.jpg DESTINATION "${PROJECT_BINARY_DIR}")
