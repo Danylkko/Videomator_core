@@ -120,7 +120,7 @@ class FrameBlurer
 public:
     ~FrameBlurer() { m_ocr->End(); }
 
-    void init(const char* text_detector, const char* text_reader);
+    void init(const char* model_data, const char* model_format, const char* tesseract_data_path);
 
     std::vector<DetectedRect> forward(cv::Mat frame, Blurer::detection_mode mode);
 private:
@@ -141,7 +141,7 @@ private:
 class VideoRenderer
 {
 public:
-    inline void init_blurer(const char* text_detector, const char* text_reader = nullptr) { m_blurer.init(text_detector, text_reader); }
+    inline void init_blurer(const char* model_data, const char* model_format, const char* tesseract_data_path) { m_blurer.init(model_data, model_format, tesseract_data_path); }
     void set_source(cv::VideoCapture& capture, std::string capture_source);
     void reset();
 
@@ -182,7 +182,7 @@ class VideoStream
 public:
     VideoStream(VideoRenderer& rend, int index);
 
-    void init_analyzer(const char* path1, const char* path2);
+    void init_analyzer(const char* model_data, const char* model_format, const char* tesseract_data_path);
    // inline VideoStream(std::vector<cv::Mat>::const_iterator start_frame, std::vector<cv::Mat>::const_iterator end) :m_iter(start_frame), m_end(end) { m_buffer = *m_iter; }
     inline ~VideoStream() { pause(); }
 
@@ -232,9 +232,9 @@ VideoStream::VideoStream(VideoRenderer& rend, int index) :m_iter(rend.frames().c
     m_capture.set(cv::CAP_PROP_POS_FRAMES, index);
 }
 
-void VideoStream::init_analyzer(const char* path1, const char* path2)
+void VideoStream::init_analyzer(const char* model_data, const char* model_format, const char* tesseract_data_path)
 {
-    m_preview_analyzer.init("frozen_inference_graph.pb", nullptr);
+    m_preview_analyzer.init(model_data, model_format, tesseract_data_path);
 }
 
 void VideoStream::load_next_frame()
@@ -330,7 +330,7 @@ void VideoRenderer::reset()
 class core_api::Blurer::BlurerImpl
 {
 public:
-    void init(const char* east_path, const char* tesseract_data_path);
+    void init(const char* model_data, const char* model_format, const char* tesseract_data_path);
 
     void load(const char* filepath);
     inline int get_fps()const { return m_renderer.get_source_fps(); }
@@ -340,9 +340,7 @@ public:
 
     void start_render(detection_mode mode);
 
-    void add_exceptions(const std::vector<DetectedRect>& exceptions);
-
-    void start_stream(size_t frame_index = 0);
+    void start_stream(unsigned int frame_index, const char* model_data, const char* model_format, const char* tesseract_data_path);
     void play_stream(int fps);
     void pause_stream();
 
@@ -372,9 +370,9 @@ bool core_api::Blurer::BlurerImpl::done_rendering() const
 }
 
 
-void core_api::Blurer::BlurerImpl::init(const char* east_path, const char* tesseract_data_path)
+void core_api::Blurer::BlurerImpl::init(const char* model_data, const char* model_format, const char* tesseract_data_path)
 {
-    m_renderer.init_blurer(east_path, tesseract_data_path);
+    m_renderer.init_blurer(model_data, model_format, tesseract_data_path);
 }
 
 void core_api::Blurer::BlurerImpl::start_render(detection_mode mode)
@@ -396,10 +394,10 @@ void core_api::Blurer::BlurerImpl::load(const char* filepath)
 }
 
 
-void core_api::Blurer::BlurerImpl::start_stream(size_t frame_index)
+void core_api::Blurer::BlurerImpl::start_stream(unsigned int frame_index, const char* model_data, const char* model_format, const char* tesseract_data_path)
 {
     m_stream = std::make_unique<VideoStream>(m_renderer, frame_index);
-    m_stream->init_analyzer("frozen_inference_graph.pb", nullptr);
+    m_stream->init_analyzer(model_data, model_format, tesseract_data_path);
 }
 
 void core_api::Blurer::BlurerImpl::play_stream(int fps)
@@ -444,9 +442,9 @@ core_api::Blurer::~Blurer()
     delete m_impl;
 }
 
-void core_api::Blurer::init(const char* east_path, const char* tesseract_data_path)
+void core_api::Blurer::init(const char* model_data, const char* model_format, const char* tesseract_data_path)
 {
-    m_impl->init(east_path, tesseract_data_path);
+    m_impl->init(model_data, model_format, tesseract_data_path);
 }
 
 void core_api::Blurer::load(const char* filepath)
@@ -484,9 +482,9 @@ void core_api::Blurer::remove_exeption(const char* text)
     Processor::instance().remove_exeption(text);
 }
 
-void core_api::Blurer::create_stream(unsigned int frame_index)
+void core_api::Blurer::create_stream(unsigned int frame_index, const char* model_data, const char* model_format, const char* tesseract_data_path)
 {
-    m_impl->start_stream(frame_index);
+    m_impl->start_stream(frame_index, model_data, model_format, tesseract_data_path);
 }
 
 
@@ -510,7 +508,6 @@ image_data core_api::Blurer::stream_buffer() const
 
 image_data core_api::Blurer::stream_buffer_preview() const
 {
-    
     return m_impl->buffer_preview();
 }
 
@@ -542,11 +539,11 @@ void core_api::Blurer::save_rendered(const char* filepath)
 }
 
 
-void FrameBlurer::init(const char* text_detector, const char* text_reader)
+void FrameBlurer::init(const char* model_data, const char* model_format, const char* tesseract_data_path)
 {
     try
     {
-        m_text_finder = std::make_unique<cv::dnn::Net>(cv::dnn::readNet(text_detector, "frozen_inference.pbtxt"));
+        m_text_finder = std::make_unique<cv::dnn::Net>(cv::dnn::readNet(model_data, model_format));
         //m_text_finder->setPreferableBackend(cv::dnn::DNN_TARGET_GPU);
     }
     catch (const cv::Exception& e)
@@ -555,7 +552,7 @@ void FrameBlurer::init(const char* text_detector, const char* text_reader)
     }
 
     m_ocr = std::make_unique<tesseract::TessBaseAPI>(tesseract::TessBaseAPI());
-    if (m_ocr->Init(text_reader ? text_reader : NULL, "eng", tesseract::OEM_LSTM_ONLY))
+    if (m_ocr->Init(tesseract_data_path ? tesseract_data_path : NULL, "eng", tesseract::OEM_LSTM_ONLY))
     {
         std::cerr << "Could not initialize tesseract.\n";
     }
