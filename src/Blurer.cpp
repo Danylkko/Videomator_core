@@ -630,7 +630,7 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
         }
     }
     if (detected.size() == 0)
-        detected.emplace_back(cv::Rect(0,0,0,0), "empty");
+        detected.push_back(DetectedRect{ cv::Rect(0,0,0,0), "empty" });
     return detected;
 }
 
