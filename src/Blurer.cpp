@@ -124,7 +124,7 @@ public:
 
     void init(const char* model_data, const char* model_format, const char* tesseract_data_path);
 
-    std::vector<DetectedRect> forward(cv::Mat frame, Blurer::detection_mode mode);
+    std::vector<DetectedRect> forward(cv::Mat frame, Blurer::detection_mode mode, std::vector<DetectedRect> prev_frame_data = std::vector<DetectedRect>());
 private:
     FrameBlurer() = default;
 
@@ -137,6 +137,8 @@ private:
 
     std::unique_ptr<cv::dnn::Net> m_text_finder;
     std::unique_ptr<tesseract::TessBaseAPI> m_ocr;
+
+    std::mutex m_lock;
 
     static void decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh,
         std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences);
@@ -174,8 +176,6 @@ private:
     std::vector<std::vector<DetectedRect>> m_proccesed_frames;
     //std::vector<cv::Mat>::const_iterator m_selected_frame;
     bool m_render_active = false;
-
-    //FrameBlurer m_blurer;
 
     cv::VideoCapture* m_video = nullptr;
     std::string m_source_path;
@@ -244,7 +244,6 @@ void VideoStream::load_next_frame()
     if ((m_iter + 1)->size() != 0)
     {
         m_iter++;
-
         std::lock_guard guard(buffer_lock);
         m_buffer = *m_iter;
         m_capture >> m_img_buffer;
@@ -254,15 +253,10 @@ void VideoStream::load_next_frame()
 void VideoStream::load_next_frame_wait()
 {
     using namespace std::chrono_literals;
-    if (m_iter == m_frame_data.end() - 1)
-        return;
     while ((m_iter + 1)->size() == 0)
         std::this_thread::sleep_for(20ms);
 
-    m_iter++;
-    std::lock_guard guard(buffer_lock);
-    m_buffer = *m_iter;
-    m_capture >> m_img_buffer;
+    load_next_frame();
 }
 
 void VideoStream::set_callback(OnFrameCallback callback)
@@ -288,20 +282,12 @@ void VideoStream::increment_iterator(std::chrono::milliseconds wait_time)
 {
     while (m_iter != m_frame_data.cend() && m_play)
     {
-        if (m_iter->size() > 0)
+        load_next_frame_wait();
+        if (m_callback_fn)
         {
-            if (m_callback_fn)
-            {
-                cv::Mat blurred = Processor::instance().blur(*m_iter, m_img_buffer);
-                m_callback_fn(image_data{ blurred.data, blurred.cols, blurred.rows });
-            }
-
-            std::lock_guard guard(buffer_lock);
-            m_buffer = *m_iter;
-            m_iter++;
-            //m_capture >> m_img_buffer;
+            cv::Mat blurred = Processor::instance().blur(*m_iter, m_img_buffer);
+            m_callback_fn(image_data{ blurred.data, blurred.cols, blurred.rows });
         }
-        std::this_thread::sleep_for(wait_time);
     }
 }
 
@@ -559,12 +545,12 @@ void FrameBlurer::init(const char* model_data, const char* model_format, const c
 }
 
 
-std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode)
+std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode, std::vector<DetectedRect> prev_frame_data)
 {
     cv::Mat frame_copy = frame;
-
     std::vector<cv::Mat> output;
 
+    std::lock_guard<std::mutex> lock(m_lock);
     cv::Mat blob = cv::dnn::blobFromImage(frame, 1.0, cv::Size(inpWidth, inpHeight), cv::Scalar(0,0,0), true);
     m_text_finder->setInput(blob);
     try
@@ -592,6 +578,7 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
         float bottom = out[scale * i + 6] * frame.rows;
         float width = std::abs(left - right);
         float height = std::abs(top - bottom);
+
 
         scores.push_back(score);
         boxes.emplace_back(left, top, width, height);
@@ -647,7 +634,10 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
         cv::Mat frame;
         *m_video >> frame;
         std::lock_guard lock{ m_frames_lock };
-        m_proccesed_frames[i + offset] = (FrameBlurer::instance().forward(frame, mode));
+        if (i == 0)
+            m_proccesed_frames[i + offset] = (FrameBlurer::instance().forward(frame, mode));
+        else
+            m_proccesed_frames[i + offset] = (FrameBlurer::instance().forward(frame, mode, m_proccesed_frames[i - 1 + offset]));
     }
 }
 
@@ -738,7 +728,8 @@ image_data VideoStream::buffer()
 
 image_data VideoStream::buffer_preview()
 {
-    auto detections = m_buffer.size()==0 ? FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all) : m_buffer;
+    //auto detections = m_buffer.size()==0 ? FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all) : m_buffer;
+    auto detections = FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all);
 
     cv::Mat frame = Processor::instance().blur(detections, m_img_buffer);
 #ifndef _WIN32

@@ -202,12 +202,12 @@ int test_abstract()
     blurer.start_render();
 
 	blurer.create_stream(0);
-    blurer.set_on_update_callback(callback1);
-    blurer.play_stream(blurer.get_fps());
+    //blurer.set_on_update_callback(callback1);
+    //blurer.play_stream(blurer.get_fps());
     while (!blurer.done_rendering())
     {
-        //blurer.stream_load_next();
-        core_api::image_data frame_buffer = blurer.stream_buffer();
+        blurer.stream_load_next();
+        core_api::image_data frame_buffer = blurer.stream_buffer_preview();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
         if(!frame.empty())
             cv::imshow(kWinName, frame);
