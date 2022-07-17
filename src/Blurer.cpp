@@ -118,7 +118,8 @@ cv::Mat Processor::blur(const std::vector<DetectedRect>& detections, cv::Mat fra
 class FrameBlurer
 {
 public:
-    static FrameBlurer& instance();
+    static FrameBlurer& render_instance();
+    static FrameBlurer& preview_instance();
 
     ~FrameBlurer() { m_ocr->End(); }
 
@@ -144,7 +145,13 @@ private:
         std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences);
 };
 
-FrameBlurer& FrameBlurer::instance()
+FrameBlurer& FrameBlurer::render_instance()
+{
+    static FrameBlurer inst;
+    return inst;
+}
+
+FrameBlurer& FrameBlurer::preview_instance()
 {
     static FrameBlurer inst;
     return inst;
@@ -153,7 +160,11 @@ FrameBlurer& FrameBlurer::instance()
 class VideoRenderer
 {
 public:
-    inline void init_blurer(const char* model_data, const char* model_format, const char* tesseract_data_path) { FrameBlurer::instance().init(model_data, model_format, tesseract_data_path); }
+    inline void init_blurer(const char* model_data, const char* model_format, const char* tesseract_data_path) {
+        FrameBlurer::render_instance().init(model_data, model_format, tesseract_data_path);
+        FrameBlurer::preview_instance().init(model_data, model_format, tesseract_data_path);
+    };
+
     void set_source(cv::VideoCapture& capture, std::string capture_source);
     void reset();
 
@@ -244,7 +255,7 @@ void VideoStream::load_next_frame()
     if ((m_iter + 1)->size() != 0)
     {
         m_iter++;
-        std::lock_guard guard(buffer_lock);
+        //std::lock_guard guard(buffer_lock);
         m_buffer = *m_iter;
         m_capture >> m_img_buffer;
     }
@@ -301,6 +312,7 @@ void VideoRenderer::set_source(cv::VideoCapture& capture, std::string capture_so
     m_render_active = false;
     for (auto& thread : m_rendering_threads)
         thread.join();
+    m_rendering_threads.clear();
 
     m_proccesed_frames.clear();
 
@@ -376,7 +388,6 @@ void core_api::Blurer::BlurerImpl::load(const char* filepath)
     {
         throw std::runtime_error("FAILED loading file at" + std::string(filepath));
     }
-
     m_renderer.set_source(m_capture, filepath);
 }
 
@@ -550,7 +561,7 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
     cv::Mat frame_copy = frame;
     std::vector<cv::Mat> output;
 
-    std::lock_guard<std::mutex> lock(m_lock);
+    //std::lock_guard<std::mutex> lock(m_lock);
     cv::Mat blob = cv::dnn::blobFromImage(frame, 1.0, cv::Size(inpWidth, inpHeight), cv::Scalar(0,0,0), true);
     m_text_finder->setInput(blob);
     try
@@ -634,10 +645,10 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
         cv::Mat frame;
         *m_video >> frame;
         std::lock_guard lock{ m_frames_lock };
-        if (i == 0)
-            m_proccesed_frames[i + offset] = (FrameBlurer::instance().forward(frame, mode));
+        if (true)
+            m_proccesed_frames[i + offset] = (FrameBlurer::render_instance().forward(frame, mode));
         else
-            m_proccesed_frames[i + offset] = (FrameBlurer::instance().forward(frame, mode, m_proccesed_frames[i - 1 + offset]));
+            m_proccesed_frames[i + offset] = (FrameBlurer::render_instance().forward(frame, mode, m_proccesed_frames[i - 1 + offset]));
     }
 }
 
@@ -728,8 +739,9 @@ image_data VideoStream::buffer()
 
 image_data VideoStream::buffer_preview()
 {
-    //auto detections = m_buffer.size()==0 ? FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all) : m_buffer;
-    auto detections = FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all);
+    std::lock_guard<std::mutex> lock(buffer_lock);
+    std::vector<DetectedRect> detections = m_buffer.size()==0 ? FrameBlurer::preview_instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all) : m_buffer;
+    //auto detections = FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all);
 
     cv::Mat frame = Processor::instance().blur(detections, m_img_buffer);
 #ifndef _WIN32

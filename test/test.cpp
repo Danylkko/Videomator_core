@@ -201,17 +201,25 @@ int test_abstract()
     blurer.add_exeption("BE1837CO");
     blurer.start_render();
 
-	blurer.create_stream(0);
+	blurer.create_stream(100);
     //blurer.set_on_update_callback(callback1);
     //blurer.play_stream(blurer.get_fps());
+    int i = 0;
     while (!blurer.done_rendering())
     {
-        blurer.stream_load_next();
+        //if (i == 20)
+        //{
+        //    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
+        //    blurer.start_render();
+        //    blurer.create_stream(0);
+        //}
+        //blurer.stream_load_next();
         core_api::image_data frame_buffer = blurer.stream_buffer_preview();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
         if(!frame.empty())
             cv::imshow(kWinName, frame);
-        cv::waitKey(1000/ blurer.get_fps());
+        cv::waitKey(2);
+        i++;
     }
 
     //blurer.create_stream(0);
