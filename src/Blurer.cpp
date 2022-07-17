@@ -98,16 +98,21 @@ cv::Mat Processor::blur(const std::vector<DetectedRect>& detections, cv::Mat fra
         if (std::find(m_exceptions.begin(), m_exceptions.end(), text) != m_exceptions.end())
             continue;
         cv::Mat blured_region;
-        try
+        if (region.area() != 0 && region.tl().y > 0 && region.tl().x > 0 && region.tl().y < frame.rows && region.tl().x < frame.cols)
         {
-            cv::GaussianBlur(frame(region), blured_region, cv::Size(0, 0), region.width/10, region.height/10);
+            try
+            {
+                //std::cout << region << std::endl;
+                cv::GaussianBlur(frame(region), blured_region, cv::Size(0, 0), region.width / 10, region.height / 10);
 
-            blured_region.copyTo(blurred(region));
+                blured_region.copyTo(blurred(region));
+            }
+            catch (std::exception& e)
+            {
+                std::cerr << e.what() << std::endl;
+            }
         }
-        catch (std::exception& e)
-        {
-            std::cerr << e.what() << std::endl;
-        }
+
     }
     return blurred;
 }
@@ -129,7 +134,7 @@ public:
 private:
     FrameBlurer() = default;
 
-    static constexpr float confThreshold = 0.66f;
+    static constexpr float confThreshold = 0.85f;
     static constexpr float nmsThreshold = 0.9f;
     static constexpr int inpWidth = 1200;
     static constexpr int inpHeight = 1200;
@@ -180,13 +185,15 @@ public:
     void save(const char* path);
 
     void wait_render_finish();
+
+    static std::mutex frames_lock;
 private:
     static constexpr uint32_t num_render_threads = 4;
 
-    std::mutex m_frames_lock;
+    
     std::vector<std::vector<DetectedRect>> m_proccesed_frames;
     //std::vector<cv::Mat>::const_iterator m_selected_frame;
-    bool m_render_active = false;
+    std::atomic_bool m_render_active = false;
 
     cv::VideoCapture* m_video = nullptr;
     std::string m_source_path;
@@ -195,6 +202,7 @@ private:
 
     void render_impl(Blurer::detection_mode mode, uint32_t frame_count, uint32_t offset);
 };
+std::mutex VideoRenderer::frames_lock = std::mutex();
 
 class VideoStream
 {
@@ -220,7 +228,6 @@ public:
 private:
     std::vector<DetectedRect> m_buffer;
     cv::Mat m_img_buffer;
-    std::mutex buffer_lock;
 
     cv::VideoCapture m_capture;
 
@@ -587,12 +594,29 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
         float top = out[scale * i + 4] * frame.rows;
         float right = out[scale * i + 5] * frame.cols;
         float bottom = out[scale * i + 6] * frame.rows;
+        
         float width = std::abs(left - right);
         float height = std::abs(top - bottom);
+        cv::Rect box{ (int)left, (int)top, (int)width, (int)height };
 
+        for (auto& [rect, text] : prev_frame_data)
+        {
+            int dist = cv::norm(rect.tl() - box.tl());
+            float area_ratio = width * height / rect.area();
+            //if ( 0.1 < score && score < confThreshold)
+                //std::cout << score;
+            if (dist < 50)
+            {
+                score = 1;
+            }
 
+                
+            //if (0.9 < area_ratio && area_ratio < 1.1)
+                //score += 0.5;
+        }
+        score = score > 1 ? 1 : score;
         scores.push_back(score);
-        boxes.emplace_back(left, top, width, height);
+        boxes.emplace_back(box);
     }
 
     //decode(scores, geometry, confThreshold, boxes, confidences);
@@ -609,7 +633,7 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
         //cv::Rect normalized_bbox = cv::Rect{ int((float)bbox.x * ratio.x), int((float)bbox.y * ratio.y), int((float)bbox.width * ratio.x), int((float)bbox.height * ratio.y) };
         std::string out_text;
 
-        std::cout << bbox << std::endl;
+        //std::cout << bbox << std::endl;
 
         detected.push_back({ bbox,  out_text });
     }
@@ -618,7 +642,7 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
     m_ocr->SetImage(frame.data, frame.cols, frame.rows, 3, frame.step);
     for (auto& rect : detected)
     {
-        if (rect.bbox.x >= 0 && rect.bbox.y >= 0 && rect.bbox.x + rect.bbox.width <= frame.cols && rect.bbox.y + rect.bbox.height <= frame.rows)
+        if (rect.bbox.x >= 0 && rect.bbox.y >= 0 && rect.bbox.x + rect.bbox.width <= frame.cols && rect.bbox.y + rect.bbox.height <= frame.rows && rect.bbox.width > 0 && rect.bbox.height > 0)
         {
             m_ocr->SetRectangle(rect.bbox.x, rect.bbox.y, rect.bbox.width, rect.bbox.height);
             m_ocr->SetSourceResolution(2000);
@@ -644,8 +668,8 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
     {
         cv::Mat frame;
         *m_video >> frame;
-        std::lock_guard lock{ m_frames_lock };
-        if (true)
+        std::lock_guard lock{ frames_lock };
+        if (i == 0)
             m_proccesed_frames[i + offset] = (FrameBlurer::render_instance().forward(frame, mode));
         else
             m_proccesed_frames[i + offset] = (FrameBlurer::render_instance().forward(frame, mode, m_proccesed_frames[i - 1 + offset]));
@@ -654,7 +678,6 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
 
 void VideoRenderer::render_async(Blurer::detection_mode mode)
 {
-
     m_render_active = true;
     int frame_count = get_source_frames();
     m_proccesed_frames = std::vector<std::vector<DetectedRect>>(frame_count);
@@ -718,7 +741,7 @@ void VideoRenderer::wait_render_finish()
 
 image_data VideoStream::buffer()
 {
-    std::lock_guard<std::mutex> guard(buffer_lock); 
+    //std::lock_guard<std::mutex> guard(buffer_lock); 
     
     cv::Mat frame = Processor::instance().blur(m_buffer, m_img_buffer);
     #ifndef _WIN32
@@ -739,7 +762,7 @@ image_data VideoStream::buffer()
 
 image_data VideoStream::buffer_preview()
 {
-    std::lock_guard<std::mutex> lock(buffer_lock);
+    std::lock_guard lock(VideoRenderer::frames_lock);
     std::vector<DetectedRect> detections = m_buffer.size()==0 ? FrameBlurer::preview_instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all) : m_buffer;
     //auto detections = FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all);
 
