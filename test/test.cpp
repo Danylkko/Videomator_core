@@ -197,20 +197,21 @@ int test_abstract()
     //blurer.load("yoda.jpg");
     //blurer.load("book.jpeg");
     blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_bad.mp4");
+
     blurer.add_exeption("BE1837CO");
     blurer.start_render();
 
 	blurer.create_stream(0);
-    //blurer.set_on_update_callback(callback1);
-    //blurer.play_stream(blurer.get_fps());
+    blurer.set_on_update_callback(callback1);
+    blurer.play_stream(blurer.get_fps());
     while (!blurer.done_rendering())
     {
-        blurer.stream_load_next();
-        auto frame_buffer = blurer.stream_buffer_preview();
+        //blurer.stream_load_next();
+        core_api::image_data frame_buffer = blurer.stream_buffer();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
         if(!frame.empty())
             cv::imshow(kWinName, frame);
-        cv::waitKey(2);
+        cv::waitKey(1000/ blurer.get_fps());
     }
 
     //blurer.create_stream(0);

@@ -71,7 +71,7 @@ EXTERN_BEGIN
 			void add_exeption(const char* text);
 			void remove_exeption(const char* text);
 
-			void create_stream(unsigned int frame_index = 0, const char* model_data = "frozen_inference_graph.pb", const char* model_format = "frozen_inference.pbtxt", const char* tesseract_data_path = nullptr);
+			void create_stream(unsigned int frame_index = 0);
 			void play_stream(int fps);
 			void pause_stream();
 
