@@ -24,6 +24,9 @@ target_link_libraries(CORE_API PUBLIC ${CONAN_LIBS})
 
 target_compile_features(CORE_API PRIVATE cxx_std_20)
 
+target_compile_definitions(CORE_API PRIVATE DWITH_INF_ENGINE)
+target_compile_definitions(CORE_API PRIVATE DENABLE_CXX11)
+
 
 if(APPLE)
     set(CMAKE_OSX_DEPLOYMENT_TARGET "10.10")

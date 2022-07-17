@@ -8,6 +8,22 @@
 #include <tesseract/baseapi.h>
 #include <leptonica/allheaders.h>
 
+//#include <openvino/openvino.hpp>
+//
+//#include <models/detection_model.h>
+//#include <models/detection_model_ssd.h>
+//#include <models/detection_model_yolo.h>
+//#include <pipelines/async_pipeline.h>
+//#include <pipelines/metadata.h>
+//#include <utils/args_helper.hpp>
+//#include <utils/common.hpp>
+//#include <utils/config_factory.h>
+//#include <utils/default_flags.hpp>
+//#include <utils/images_capture.h>
+//#include <utils/ocv_common.hpp>
+//#include <utils/performance_metrics.hpp>
+//#include <utils/slog.hpp>
+
 
 #include <string>
 #include <vector>
@@ -27,7 +43,76 @@ struct core_api::DetectedRect
 {
     cv::Rect bbox;
     std::string text;
+
+    bool empty();
 };
+
+bool core_api::DetectedRect::empty()
+{
+    return text == "empty";
+}
+
+class Processor
+{
+public:
+    static Processor& instance();
+
+    cv::Mat blur(const std::vector<DetectedRect>& detections, cv::Mat frame);
+
+    void add_exeption(const char* text);
+    void remove_exeption(const char* text);
+private:
+    std::vector<std::string> m_exceptions;
+};
+
+Processor& Processor::instance()
+{
+    static Processor instance;
+    return instance;
+}
+
+void Processor::add_exeption(const char* text)
+{
+    std::string text_s = text;
+    if (std::find(m_exceptions.cbegin(), m_exceptions.cend(), text_s) != m_exceptions.end())
+    {
+        m_exceptions.emplace_back(std::move(text_s));
+    }
+}
+
+void Processor::remove_exeption(const char* text)
+{
+    std::string text_s = text;
+    auto iter = std::find(m_exceptions.cbegin(), m_exceptions.cend(), text_s);
+    if (iter != m_exceptions.end())
+    {
+        m_exceptions.erase(iter);
+    }
+}
+
+cv::Mat Processor::blur(const std::vector<DetectedRect>& detections, cv::Mat frame)
+{
+    cv::Mat blurred = frame;
+    for (auto& [region, text] : detections)
+    {
+        if (std::find(m_exceptions.begin(), m_exceptions.end(), text) != m_exceptions.end())
+            continue;
+        cv::Mat blured_region;
+        try
+        {
+            cv::GaussianBlur(frame(region), blured_region, cv::Size(0, 0), region.width/10, region.height/10);
+
+            blured_region.copyTo(blurred(region));
+        }
+        catch (std::exception& e)
+        {
+            std::cerr << e.what() << std::endl;
+        }
+    }
+    return blurred;
+}
+
+
 
 
 class FrameBlurer
@@ -37,28 +122,72 @@ public:
 
     void init(const char* text_detector, const char* text_reader);
 
-    cv::Mat forward(cv::Mat frame, Blurer::detection_mode mode);
+    std::vector<DetectedRect> forward(cv::Mat frame, Blurer::detection_mode mode);
 private:
-    static constexpr float confThreshold = 0.975f;
-    static constexpr float nmsThreshold = 0.6f;
-    static constexpr int inpWidth = 480;
-    static constexpr int inpHeight = 480;
+    static constexpr float confThreshold = 0.66f;
+    static constexpr float nmsThreshold = 0.9f;
+    static constexpr int inpWidth = 1200;
+    static constexpr int inpHeight = 1200;
+    static constexpr int outLength = 100;
+    static constexpr int outWidth = 7;
 
     std::unique_ptr<cv::dnn::Net> m_text_finder;
-    std::unique_ptr< tesseract::TessBaseAPI> m_ocr;
+    std::unique_ptr<tesseract::TessBaseAPI> m_ocr;
 
     static void decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh,
         std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences);
 };
 
+class VideoRenderer
+{
+public:
+    inline void init_blurer(const char* text_detector, const char* text_reader = nullptr) { m_blurer.init(text_detector, text_reader); }
+    void set_source(cv::VideoCapture& capture, std::string capture_source);
+    void reset();
+
+    inline const std::string& capture_source()const { return m_source_path; }
+
+    inline const FrameBlurer& analyzer()const { return m_blurer; }
+
+    double get_source_fps() const { return m_video->get(cv::CAP_PROP_FPS); }
+    int get_source_frames() const { return static_cast<int>(m_video->get(cv::CAP_PROP_FRAME_COUNT)); }
+
+    void render_async(Blurer::detection_mode mode);
+
+    inline const std::vector<std::vector<DetectedRect>>& frames() const { return m_proccesed_frames; }
+
+    void save(const char* path);
+
+    void wait_render_finish();
+private:
+    static constexpr uint32_t num_render_threads = 4;
+
+    std::mutex m_frames_lock;
+    std::vector<std::vector<DetectedRect>> m_proccesed_frames;
+    //std::vector<cv::Mat>::const_iterator m_selected_frame;
+    bool m_render_active = false;
+
+    FrameBlurer m_blurer;
+
+    cv::VideoCapture* m_video = nullptr;
+    std::string m_source_path;
+
+    std::vector<std::thread> m_rendering_threads;
+
+    void render_impl(Blurer::detection_mode mode, uint32_t frame_count, uint32_t offset);
+};
 
 class VideoStream
 {
 public:
-    inline VideoStream(std::vector<cv::Mat>::const_iterator start_frame, std::vector<cv::Mat>::const_iterator end) :m_iter(start_frame), m_end(end) { m_buffer = *m_iter; }
+    VideoStream(VideoRenderer& rend, int index);
+
+    void init_analyzer(const char* path1, const char* path2);
+   // inline VideoStream(std::vector<cv::Mat>::const_iterator start_frame, std::vector<cv::Mat>::const_iterator end) :m_iter(start_frame), m_end(end) { m_buffer = *m_iter; }
     inline ~VideoStream() { pause(); }
 
-    const cv::Mat& buffer();
+    image_data buffer();
+    image_data buffer_preview();
     
     void set_callback(OnFrameCallback callback);
     inline void remove_callback() { m_callback_fn = nullptr; }
@@ -71,11 +200,17 @@ public:
     void pause();
 
 private:
-    cv::Mat m_buffer;
+    std::vector<DetectedRect> m_buffer;
+    cv::Mat m_img_buffer;
     std::mutex buffer_lock;
 
-    std::vector<cv::Mat>::const_iterator m_iter;
-    std::vector<cv::Mat>::const_iterator m_end;
+    cv::VideoCapture m_capture;
+
+    FrameBlurer m_preview_analyzer;
+    
+
+    std::vector<std::vector<DetectedRect>>::const_iterator m_iter;
+    const std::vector<std::vector<DetectedRect>>& m_frame_data;
 
     OnFrameCallback m_callback_fn = nullptr;
 
@@ -87,28 +222,47 @@ private:
     void increment_iterator(std::chrono::milliseconds wait_time);
 };
 
+VideoStream::VideoStream(VideoRenderer& rend, int index) :m_iter(rend.frames().cbegin() + index), m_frame_data(rend.frames()) 
+{ 
+    m_buffer = *m_iter;
+    m_capture.open(rend.capture_source());
+
+    m_capture.set(cv::CAP_PROP_POS_FRAMES, index);
+    m_capture >> m_img_buffer;
+    m_capture.set(cv::CAP_PROP_POS_FRAMES, index);
+}
+
+void VideoStream::init_analyzer(const char* path1, const char* path2)
+{
+    m_preview_analyzer.init("frozen_inference_graph.pb", nullptr);
+}
+
 void VideoStream::load_next_frame()
 {
-    if (!(m_iter + 1)->empty())
+    if (m_iter + 1 == m_frame_data.cend())
+        return;
+    if ((m_iter + 1)->size() != 0)
     {
         m_iter++;
 
         std::lock_guard guard(buffer_lock);
         m_buffer = *m_iter;
+        m_capture >> m_img_buffer;
     }
 }
 
 void VideoStream::load_next_frame_wait()
 {
     using namespace std::chrono_literals;
-    if (m_iter == m_end - 1)
+    if (m_iter == m_frame_data.end() - 1)
         return;
-    while ((m_iter + 1)->empty())
+    while ((m_iter + 1)->size() == 0)
         std::this_thread::sleep_for(20ms);
 
     m_iter++;
     std::lock_guard guard(buffer_lock);
     m_buffer = *m_iter;
+    m_capture >> m_img_buffer;
 }
 
 void VideoStream::set_callback(OnFrameCallback callback)
@@ -126,18 +280,20 @@ void VideoStream::play(uint32_t fps)
 void VideoStream::pause()
 {
     m_play = false;
-    m_running_thread->join();
+    if(m_running_thread)
+        m_running_thread->join();
 }
 
 void VideoStream::increment_iterator(std::chrono::milliseconds wait_time)
 {
-    while (m_iter != m_end && m_play)
+    while (m_iter != m_frame_data.cend() && m_play)
     {
-        if (!m_iter->empty())
+        if (m_iter->size() > 0)
         {
             if (m_callback_fn)
             {
-                m_callback_fn(image_data{ m_iter->data, m_iter->cols, m_iter->rows });
+                cv::Mat blurred = Processor::instance().blur(*m_iter, m_img_buffer);
+                m_callback_fn(image_data{ blurred.data, blurred.cols, blurred.rows });
             }
 
             std::lock_guard guard(buffer_lock);
@@ -150,55 +306,19 @@ void VideoStream::increment_iterator(std::chrono::milliseconds wait_time)
 
 
 
-class VideoRenderer
-{
-public:
-    inline void init_blurer(const char* text_detector, const char* text_reader = nullptr) { m_blurer.init(text_detector, text_reader); }
-    void set_source(cv::VideoCapture& capture);
-    void reset();
-
-    double get_source_fps() const { return m_video->get(cv::CAP_PROP_FPS); }
-    int get_source_frames() const { return static_cast<int>(m_video->get(cv::CAP_PROP_FRAME_COUNT)); }
-
-    void render_async(Blurer::detection_mode mode);
-    
-    inline const std::vector<cv::Mat>& frames() const { return m_proccesed_frames; }
-
-    void save(const char* path);
-
-    void wait_render_finish();
-private:
-    static constexpr uint32_t num_render_threads = 4;
-
-    std::mutex m_frames_lock;
-    std::vector<cv::Mat> m_proccesed_frames;
-    //std::vector<cv::Mat>::const_iterator m_selected_frame;
-    bool m_render_active = false;
-
-    FrameBlurer m_blurer;
-
-    cv::VideoCapture* m_video = nullptr;
-
-    cv::VideoWriter m_writer;
-
-    std::vector<std::thread> m_rendering_threads;
-
-    void render_impl(Blurer::detection_mode mode, uint32_t frame_count, uint32_t offset);
 
 
-};
 
-
-void VideoRenderer::set_source(cv::VideoCapture& video)
+void VideoRenderer::set_source(cv::VideoCapture& capture, std::string capture_source)
 {
     m_render_active = false;
     for (auto& thread : m_rendering_threads)
         thread.join();
 
     m_proccesed_frames.clear();
-    m_writer.release();
 
-    m_video = &video;
+    m_video = &capture;
+    m_source_path = capture_source;
 }
 
 void VideoRenderer::reset()
@@ -233,6 +353,7 @@ public:
     inline void stream_load_next_wait() { m_stream->load_next_frame_wait(); }
 
     core_api::image_data buffer() const;
+    core_api::image_data buffer_preview() const;
 
     void save_rendered_impl(const char* filepath);
 
@@ -246,8 +367,8 @@ private:
 
 bool core_api::Blurer::BlurerImpl::done_rendering() const
 {
-    int frames = std::count_if(m_renderer.frames().begin(), m_renderer.frames().end(), [](const cv::Mat& mat) { return !mat.empty(); });
-    return frames == get_frame_count();
+    int frames_done = std::count_if(m_renderer.frames().begin(), m_renderer.frames().end(), [](const std::vector<DetectedRect>& frame_data) { return frame_data.size()>0; });
+    return frames_done == m_renderer.frames().size();
 }
 
 
@@ -271,13 +392,14 @@ void core_api::Blurer::BlurerImpl::load(const char* filepath)
         throw std::runtime_error("FAILED loading file at" + std::string(filepath));
     }
 
-    m_renderer.set_source(m_capture);
+    m_renderer.set_source(m_capture, filepath);
 }
 
 
 void core_api::Blurer::BlurerImpl::start_stream(size_t frame_index)
 {
-    m_stream = std::make_unique<VideoStream>(m_renderer.frames().cbegin() + frame_index, m_renderer.frames().cend());
+    m_stream = std::make_unique<VideoStream>(m_renderer, frame_index);
+    m_stream->init_analyzer("frozen_inference_graph.pb", nullptr);
 }
 
 void core_api::Blurer::BlurerImpl::play_stream(int fps)
@@ -294,7 +416,12 @@ void core_api::Blurer::BlurerImpl::pause_stream()
 
 core_api::image_data core_api::Blurer::BlurerImpl::buffer() const
 {
-    return { m_stream->buffer().data, m_stream->buffer().cols, m_stream->buffer().rows };
+    return m_stream->buffer();
+}
+
+core_api::image_data core_api::Blurer::BlurerImpl::buffer_preview() const
+{
+    return m_stream->buffer_preview();
 }
 
 
@@ -347,10 +474,22 @@ void core_api::Blurer::start_render(detection_mode mode)
     m_impl->start_render(mode);
 }
 
+void core_api::Blurer::add_exeption(const char* text)
+{
+    Processor::instance().add_exeption(text);
+}
+
+void core_api::Blurer::remove_exeption(const char* text)
+{
+    Processor::instance().remove_exeption(text);
+}
+
 void core_api::Blurer::create_stream(unsigned int frame_index)
 {
     m_impl->start_stream(frame_index);
 }
+
+
 
 
 void core_api::Blurer::play_stream(int fps)
@@ -367,6 +506,12 @@ void core_api::Blurer::pause_stream()
 image_data core_api::Blurer::stream_buffer() const
 {
     return m_impl->buffer();
+}
+
+image_data core_api::Blurer::stream_buffer_preview() const
+{
+    
+    return m_impl->buffer_preview();
 }
 
 
@@ -399,10 +544,10 @@ void core_api::Blurer::save_rendered(const char* filepath)
 
 void FrameBlurer::init(const char* text_detector, const char* text_reader)
 {
-    cv::String model = text_detector;
     try
     {
-        m_text_finder = std::make_unique<cv::dnn::Net>(cv::dnn::readNet(model));
+        m_text_finder = std::make_unique<cv::dnn::Net>(cv::dnn::readNet(text_detector, "frozen_inference.pbtxt"));
+        //m_text_finder->setPreferableBackend(cv::dnn::DNN_TARGET_GPU);
     }
     catch (const cv::Exception& e)
     {
@@ -417,120 +562,84 @@ void FrameBlurer::init(const char* text_detector, const char* text_reader)
 }
 
 
-
-
-
-
-
-cv::Mat FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode)
+std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_mode mode)
 {
     cv::Mat frame_copy = frame;
 
     std::vector<cv::Mat> output;
-    std::vector<cv::String> outputLayers(2);
-    outputLayers[0] = "feature_fusion/Conv_7/Sigmoid";
-    outputLayers[1] = "feature_fusion/concat_3";
 
-    cv::Mat blob = cv::dnn::blobFromImage(frame, 1.0, cv::Size(inpWidth, inpHeight));
+    cv::Mat blob = cv::dnn::blobFromImage(frame, 1.0, cv::Size(inpWidth, inpHeight), cv::Scalar(0,0,0), true);
     m_text_finder->setInput(blob);
-    m_text_finder->forward(output, outputLayers);
+    try
+    {
+        m_text_finder->forward(output);
 
-    cv::Mat scores = output[0];
-    cv::Mat geometry = output[1];
+    }
+    catch (cv::Exception e)
+    {
+        std::cout << e.what() << std::endl;
+    }
+   
+    float* out = output[0].ptr<float>(0,0);
+    
+    std::vector<float> scores;
+    std::vector<cv::Rect> boxes;
+    for (int i = 0; i < outLength; i++)
+    {
+        int scale = outWidth;
+        float score = out[scale * i + 2];
 
-    std::vector<cv::RotatedRect> boxes;
-    std::vector<float> confidences;
-    decode(scores, geometry, confThreshold, boxes, confidences);
+        float left = out[scale * i + 3] * frame.cols;
+        float top = out[scale * i + 4] * frame.rows;
+        float right = out[scale * i + 5] * frame.cols;
+        float bottom = out[scale * i + 6] * frame.rows;
+        float width = std::abs(left - right);
+        float height = std::abs(top - bottom);
+
+        scores.push_back(score);
+        boxes.emplace_back(left, top, width, height);
+    }
+
+    //decode(scores, geometry, confThreshold, boxes, confidences);
 
     std::vector<int> indices;
-    cv::dnn::NMSBoxes(boxes, confidences, confThreshold, nmsThreshold, indices);
+    cv::dnn::NMSBoxes(boxes, scores, confThreshold, nmsThreshold, indices);
 
     cv::Point2f ratio((float)frame.cols / inpWidth, (float)frame.rows / inpHeight);
     std::vector<DetectedRect> detected;
     for (auto index : indices)
     {
-        cv::Rect bbox = boxes[index].boundingRect();
-        cv::Rect normalized_bbox = cv::Rect{ int((float)bbox.x * ratio.x), int((float)bbox.y * ratio.y), int((float)bbox.width * ratio.x), int((float)bbox.height * ratio.y) };
+        
+        cv::Rect bbox = boxes[index];
+        //cv::Rect normalized_bbox = cv::Rect{ int((float)bbox.x * ratio.x), int((float)bbox.y * ratio.y), int((float)bbox.width * ratio.x), int((float)bbox.height * ratio.y) };
         std::string out_text;
 
+        std::cout << bbox << std::endl;
 
-
-        detected.push_back({ normalized_bbox,  out_text });
+        detected.push_back({ bbox,  out_text });
     }
 
-    if (mode != Blurer::detection_mode::all)
+
+    m_ocr->SetImage(frame.data, frame.cols, frame.rows, 3, frame.step);
+    for (auto& rect : detected)
     {
-         m_ocr->SetImage(frame.data, frame.cols, frame.rows, 3, frame.step);
-         for (auto& rect : detected)
-         {
-             m_ocr->SetRectangle(rect.bbox.x, rect.bbox.y, rect.bbox.width, rect.bbox.height);
-             m_ocr->SetSourceResolution(2000);
-
-             rect.text = m_ocr->GetUTF8Text();
-         }
-    }
-
-    cv::Mat blurred = frame_copy;
-    for (auto& [region, text] : detected)
-    {
-        cv::Mat blured_region;
-        try
+        if (rect.bbox.x >= 0 && rect.bbox.y >= 0 && rect.bbox.x + rect.bbox.width <= frame.cols && rect.bbox.y + rect.bbox.height <= frame.rows)
         {
-            cv::GaussianBlur(frame_copy(region), blured_region, cv::Size(0, 0), 4);
+            m_ocr->SetRectangle(rect.bbox.x, rect.bbox.y, rect.bbox.width, rect.bbox.height);
+            m_ocr->SetSourceResolution(2000);
 
-            blured_region.copyTo(blurred(region));
-        }
-        catch (std::exception& e)
-        {
-            std::cerr << e.what() << std::endl;
+
+            rect.text = m_ocr->GetUTF8Text();
         }
     }
-
-    return blurred;
+    if (detected.size() == 0)
+        detected.emplace_back(cv::Rect(0,0,0,0), "empty");
+    return detected;
 }
 
 void FrameBlurer::decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh, std::vector<cv::RotatedRect>& detections, std::vector<float>& confidences)
 {
-    detections.clear();
-    CV_Assert(scores.dims == 4); CV_Assert(geometry.dims == 4); CV_Assert(scores.size[0] == 1);
-    CV_Assert(geometry.size[0] == 1); CV_Assert(scores.size[1] == 1); CV_Assert(geometry.size[1] == 5);
-    CV_Assert(scores.size[2] == geometry.size[2]); CV_Assert(scores.size[3] == geometry.size[3]);
-
-    const int height = scores.size[2];
-    const int width = scores.size[3];
-    for (int y = 0; y < height; ++y)
-    {
-        const float* scoresData = scores.ptr<float>(0, 0, y);
-        const float* x0_data = geometry.ptr<float>(0, 0, y);
-        const float* x1_data = geometry.ptr<float>(0, 1, y);
-        const float* x2_data = geometry.ptr<float>(0, 2, y);
-        const float* x3_data = geometry.ptr<float>(0, 3, y);
-        const float* anglesData = geometry.ptr<float>(0, 4, y);
-        for (int x = 0; x < width; ++x)
-        {
-            float score = scoresData[x];
-            if (score < scoreThresh)
-                continue;
-
-            float offsetX = x * 4.0f, offsetY = y * 4.0f;
-            float angle = anglesData[x];
-            float cosA = std::cos(angle);
-            float sinA = std::sin(angle);
-            float h = x0_data[x] + x2_data[x];
-            float w = x1_data[x] + x3_data[x];
-
-            cv::Point2f offset(offsetX + cosA * x1_data[x] + sinA * x2_data[x],
-                offsetY - sinA * x1_data[x] + cosA * x2_data[x]);
-            cv::Point2f p1 = cv::Point2f(-sinA * h, -cosA * h) + offset;
-            cv::Point2f p3 = cv::Point2f(-cosA * w, sinA * w) + offset;
-            cv::RotatedRect r(0.5f * (p1 + p3), cv::Size2f(w, h), -angle * 180.0f / (float)CV_PI);
-            detections.push_back(r);
-            confidences.push_back(score);
-        }
-    }
 }
-
-
 
 
 
@@ -550,29 +659,30 @@ void VideoRenderer::render_async(Blurer::detection_mode mode)
 
     m_render_active = true;
     int frame_count = get_source_frames();
-    m_proccesed_frames = std::vector<cv::Mat>(frame_count);
-
-    /*   int frames_per_thread = frame_count / num_render_threads;
-       int remainder = frame_count % num_render_threads;
-
-       for (int i = 0; i < num_render_threads; i++)
-       {
-           if (i == num_render_threads - 1)
-               frames_per_thread += remainder;
-
-           std::vector<cv::Mat> thread_frames;
-           thread_frames.reserve(frames_per_thread);
-           for (int j = 0; i < frames_per_thread; j++)
-           {
-               thread_frames.push_back(
-
-           )
-           }
-
-           m_rendering_threads.emplace_back(&VideoRenderer::render_impl, this, mode, frames_per_thread, i * frames_per_thread);
-       }*/
+    m_proccesed_frames = std::vector<std::vector<DetectedRect>>(frame_count);
 
     m_rendering_threads.emplace_back(&VideoRenderer::render_impl, this, mode, frame_count, 0);
+    //m_proccesed_frames = std::vector<cv::Mat>(frame_count);
+
+/*   int frames_per_thread = frame_count / num_render_threads;
+   int remainder = frame_count % num_render_threads;
+
+   for (int i = 0; i < num_render_threads; i++)
+   {
+       if (i == num_render_threads - 1)
+           frames_per_thread += remainder;
+
+       std::vector<cv::Mat> thread_frames;
+       thread_frames.reserve(frames_per_thread);
+       for (int j = 0; i < frames_per_thread; j++)
+       {
+           thread_frames.push_back(
+
+       )
+       }
+
+       m_rendering_threads.emplace_back(&VideoRenderer::render_impl, this, mode, frames_per_thread, i * frames_per_thread);
+   }*/
 }
 
 
@@ -580,18 +690,16 @@ void VideoRenderer::render_async(Blurer::detection_mode mode)
 
 void VideoRenderer::save(const char* path)
 {
-    
+    wait_render_finish();
     using namespace std::chrono_literals;
     cv::VideoWriter output(path, cv::VideoWriter::fourcc('m', 'p', '4', 'v'), get_source_fps(), cv::Size(m_video->get(cv::CAP_PROP_FRAME_WIDTH), m_video->get(cv::CAP_PROP_FRAME_HEIGHT)));
+    m_video->set(cv::CAP_PROP_POS_FRAMES, 0);
 
-    for (auto& frame : m_proccesed_frames)
+    for (auto& frame_data : m_proccesed_frames)
     {
-
-        while (frame.empty())
-        {
-            std::this_thread::sleep_for(10ms);
-        }
-
+        cv::Mat frame;
+        *m_video >> frame;
+        frame = Processor::instance().blur(frame_data, frame);
         output.write(frame);
     }
     //for (auto& thread : m_rendering_threads)
@@ -603,15 +711,51 @@ void VideoRenderer::save(const char* path)
 void VideoRenderer::wait_render_finish()
 {
     for (auto& thread : m_rendering_threads)
-        thread.join();
+    {
+        if(thread.joinable())
+            thread.join();
+    }
+        
 }
 
-const cv::Mat& VideoStream::buffer()
+image_data VideoStream::buffer()
 {
     std::lock_guard<std::mutex> guard(buffer_lock); 
+    
+    cv::Mat frame = Processor::instance().blur(m_buffer, m_img_buffer);
     #ifndef _WIN32
-        if(!m_buffer.empty())
-            cv::cvtColor(m_buffer, m_buffer, cv::COLOR_BGR2RGB);
+    if (!frame.empty())
+        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
     #endif
-    return m_buffer;
+
+    unsigned int size = m_buffer.size();
+    core_api::Detective* dets = new Detective[size];
+    for (int i = 0; i < size; i++)
+    {
+        char* text = new char[m_buffer[i].text.size()];
+        strcpy(text, m_buffer[i].text.c_str());
+        dets[i] = Detective{ m_buffer[i].bbox.tl().y,  m_buffer[i].bbox.tl().x, m_buffer[i].bbox.width, m_buffer[i].bbox.height, text };
+    }
+    return { frame.data, frame.cols, frame.rows, dets, size };
+}
+
+image_data VideoStream::buffer_preview()
+{
+    auto detections = m_preview_analyzer.forward(m_img_buffer, core_api::Blurer::detection_mode::all);
+
+    cv::Mat frame = Processor::instance().blur(detections, m_img_buffer);
+#ifndef _WIN32
+    if (!frame.empty())
+        cv::cvtColor(frame, frame, cv::COLOR_BGR2RGB);
+#endif
+
+    unsigned int size = detections.size();
+    core_api::Detective* dets = new Detective[size];
+    for (int i = 0; i < size; i++)
+    {
+        char* text = new char[detections[i].text.size()];
+        strcpy(text, detections[i].text.c_str());
+        dets[i] = Detective{ detections[i].bbox.tl().y,  detections[i].bbox.tl().x, detections[i].bbox.width, detections[i].bbox.height, text };
+    }
+    return { frame.data, frame.cols, frame.rows, dets, size };
 }

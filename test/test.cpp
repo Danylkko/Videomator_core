@@ -191,40 +191,40 @@ int test_abstract()
 {
     static const std::string kWinName = "TEST";
     cv::namedWindow(kWinName, cv::WINDOW_NORMAL);
-
 	core_api::Blurer blurer;
-	blurer.init();
+	blurer.init("frozen_inference_graph.pb");
 
     //blurer.load("yoda.jpg");
     //blurer.load("book.jpeg");
-    blurer.load("C:\\Users\\1voic\\Downloads\\FH5_DAY_TEST.mp4");
+    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_bad.mp4");
+    blurer.add_exeption("BE1837CO");
     blurer.start_render();
 
 	blurer.create_stream(0);
-    blurer.set_on_update_callback(callback1);
+    //blurer.set_on_update_callback(callback1);
     //blurer.play_stream(blurer.get_fps());
     while (!blurer.done_rendering())
     {
         blurer.stream_load_next();
-        auto frame_buffer = blurer.stream_buffer();
+        auto frame_buffer = blurer.stream_buffer_preview();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
         if(!frame.empty())
             cv::imshow(kWinName, frame);
         cv::waitKey(2);
     }
 
-    blurer.create_stream(0);
-    blurer.play_stream(blurer.get_fps());
-    for(int i = 0; i<blurer.get_frame_count(); i++)
-    {
-        int frame_delay = 1000 / blurer.get_fps();
-        auto frame_buffer = blurer.stream_buffer();
-        cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
-        if (!frame.empty())
-            cv::imshow(kWinName, frame);
-        cv::waitKey(frame_delay);
-    }
-    blurer.save_rendered("D:\\Photos\\test\\test1.mp4");
+    //blurer.create_stream(0);
+    //blurer.play_stream(blurer.get_fps());
+    //for(int i = 0; i<blurer.get_frame_count(); i++)
+    //{
+    //    int frame_delay = 1000 / blurer.get_fps();
+    //    auto frame_buffer = blurer.stream_buffer();
+    //    cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
+    //    if (!frame.empty())
+    //        cv::imshow(kWinName, frame);
+    //    cv::waitKey(frame_delay);
+    //}
+    blurer.save_rendered("D:\\Photos\\test\\test_bad_test.mp4");
 
     //blurer.load("C:\\Users\\1voic\\Downloads\\FH5_TEST.mp4");
     //blurer.start_render();

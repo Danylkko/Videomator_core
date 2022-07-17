@@ -29,11 +29,23 @@ EXTERN_BEGIN
 	{
 		struct DetectedRect;
 
+		struct Detective
+		{
+			int top;
+			int left;
+			int width;
+			int heigh;
+			const char* text;
+		};
+
 		struct image_data
 		{
 			unsigned char* data;
 			int width;
 			int height;
+
+			Detective* detectives;
+			unsigned int detectives_size;
 		};
 
 		using OnFrameCallback = void (*)(image_data);
@@ -46,7 +58,7 @@ EXTERN_BEGIN
 
 			enum class detection_mode { all, license_plates_only };
 
-			void init(const char* east_path = "frozen_east_text_detection.pb", const char* tesseract_data_path = nullptr);
+			void init(const char* east_path = "frozen_inference_graph.pb", const char* tesseract_data_path = nullptr);
 
 			void load(const char* filepath); 
 			int get_fps();
@@ -56,11 +68,15 @@ EXTERN_BEGIN
 
 			void start_render(detection_mode mode = detection_mode::all);
 
+			void add_exeption(const char* text);
+			void remove_exeption(const char* text);
+
 			void create_stream(unsigned int frame_index = 0);
 			void play_stream(int fps);
 			void pause_stream();
 
 			image_data stream_buffer() const;
+			image_data stream_buffer_preview() const;
 
 			void set_on_update_callback(OnFrameCallback callback);
 			void reset_on_update_callback();
