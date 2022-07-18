@@ -196,31 +196,42 @@ int test_abstract()
 
     //blurer.load("yoda.jpg");
     //blurer.load("book.jpeg");
+    blurer.load("C:\\Users\\1voic\\Downloads\\Trim.mp4");
+    blurer.start_render();
+    blurer.save_rendered("D:\\Photos\\test\\test_really_bad.mp4");
+
+    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
+    blurer.start_render();
+    blurer.save_rendered("D:\\Photos\\test\\test_good.mp4");
+
     blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_bad.mp4");
+    blurer.start_render();
+    blurer.save_rendered("D:\\Photos\\test\\test_bad.mp4");
+
 
     //blurer.add_exeption("BE1837CO");
-    blurer.start_render();
+ //   blurer.start_render();
 
-	blurer.create_stream(0);
-    blurer.set_on_update_callback(callback1);
-    //blurer.play_stream(blurer.get_fps());
-    int i = 0;
-    while (!blurer.done_rendering())
-    {
-        if (i == 20)
-        {
-            blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
-            blurer.start_render();
-            blurer.create_stream(0);
-        }
-        blurer.stream_load_next();
-        core_api::image_data frame_buffer = blurer.stream_buffer_preview();
-        cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
-        if(!frame.empty())
-            cv::imshow(kWinName, frame);
-        cv::waitKey(2);
-        i++;
-    }
+	//blurer.create_stream(0);
+ //   blurer.set_on_update_callback(callback1);
+ //   //blurer.play_stream(blurer.get_fps());
+ //   int i = 0;
+ //   while (!blurer.done_rendering())
+ //   {
+ //       //if (i == 20)
+ //       //{
+ //       //    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
+ //       //    blurer.start_render();
+ //       //    blurer.create_stream(0);
+ //       //}
+ //       blurer.stream_load_next();
+ //       core_api::image_data frame_buffer = blurer.stream_buffer_preview();
+ //       cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
+ //       if(!frame.empty())
+ //           cv::imshow(kWinName, frame);
+ //       cv::waitKey(2);
+ //       i++;
+ //   }
 
     //blurer.create_stream(0);
     //blurer.play_stream(blurer.get_fps());
@@ -233,7 +244,7 @@ int test_abstract()
     //        cv::imshow(kWinName, frame);
     //    cv::waitKey(frame_delay);
     //}
-    blurer.save_rendered("D:\\Photos\\test\\test_bad_test.mp4");
+    //blurer.save_rendered("D:\\Photos\\test\\test_really_bad.mp4");
 
     //blurer.load("C:\\Users\\1voic\\Downloads\\FH5_TEST.mp4");
     //blurer.start_render();

@@ -134,8 +134,8 @@ public:
 private:
     FrameBlurer() = default;
 
-    static constexpr float confThreshold = 0.85f;
-    static constexpr float nmsThreshold = 0.6f;
+    static constexpr float confThreshold = 0.95f;
+    static constexpr float nmsThreshold = 0.4;
     static constexpr int inpWidth = 1200;
     static constexpr int inpHeight = 1200;
     static constexpr int outLength = 100;
@@ -624,10 +624,16 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
             int dist = cv::norm(rect.tl() - box.tl());
             float area_ratio = width * height / rect.area();
 
-            if (dist < 25)
+            int scale = frame.cols * frame.rows;
+            if (dist < scale/50000)
             {
-                score += 0.5;
+                score += confThreshold - 0.075;
             }
+            //else
+            //{
+            //    score += 20.f / dist;
+            //}
+            
         }
         score = score > 1 ? 1 : score;
         scores.push_back(score);
