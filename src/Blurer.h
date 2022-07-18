@@ -65,6 +65,7 @@ EXTERN_BEGIN
 			int get_frame_count();
 
 			bool done_rendering();
+			float rendering_progress();
 
 			void start_render(detection_mode mode = detection_mode::all);
 

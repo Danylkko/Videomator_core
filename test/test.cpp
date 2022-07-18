@@ -207,12 +207,12 @@ int test_abstract()
     int i = 0;
     while (!blurer.done_rendering())
     {
-        //if (i == 20)
-        //{
-        //    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
-        //    blurer.start_render();
-        //    blurer.create_stream(0);
-        //}
+        if (i == 20)
+        {
+            blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
+            blurer.start_render();
+            blurer.create_stream(0);
+        }
         blurer.stream_load_next();
         core_api::image_data frame_buffer = blurer.stream_buffer_preview();
         cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };

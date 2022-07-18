@@ -135,7 +135,7 @@ private:
     FrameBlurer() = default;
 
     static constexpr float confThreshold = 0.85f;
-    static constexpr float nmsThreshold = 0.9f;
+    static constexpr float nmsThreshold = 0.6f;
     static constexpr int inpWidth = 1200;
     static constexpr int inpHeight = 1200;
     static constexpr int outLength = 100;
@@ -350,6 +350,7 @@ public:
     inline int get_fps()const { return m_renderer.get_source_fps(); }
     inline int get_frame_count()const { return m_renderer.get_source_frames(); }
 
+    float rendering_progres() const;
     bool done_rendering() const;
 
     void start_render(detection_mode mode);
@@ -381,6 +382,12 @@ bool core_api::Blurer::BlurerImpl::done_rendering() const
 {
     int frames_done = std::count_if(m_renderer.frames().begin(), m_renderer.frames().end(), [](const std::vector<DetectedRect>& frame_data) { return frame_data.size()>0; });
     return frames_done == m_renderer.frames().size();
+}
+
+float core_api::Blurer::BlurerImpl::rendering_progres() const
+{
+    int frames_done = std::count_if(m_renderer.frames().begin(), m_renderer.frames().end(), [](const std::vector<DetectedRect>& frame_data) { return frame_data.size() > 0; });
+    return (float)frames_done / m_renderer.frames().size();
 }
 
 
@@ -477,6 +484,11 @@ int core_api::Blurer::get_frame_count()
 bool core_api::Blurer::done_rendering()
 {
     return m_impl->done_rendering();
+}
+
+float core_api::Blurer::rendering_progress()
+{
+    return m_impl->rendering_progres();
 }
 
 void core_api::Blurer::start_render(detection_mode mode)
@@ -611,16 +623,11 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
         {
             int dist = cv::norm(rect.tl() - box.tl());
             float area_ratio = width * height / rect.area();
-            //if ( 0.1 < score && score < confThreshold)
-                //std::cout << score;
-            if (dist < 50)
-            {
-                score = 1;
-            }
 
-                
-            //if (0.9 < area_ratio && area_ratio < 1.1)
-                //score += 0.5;
+            if (dist < 25)
+            {
+                score += 0.5;
+            }
         }
         score = score > 1 ? 1 : score;
         scores.push_back(score);
