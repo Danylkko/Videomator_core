@@ -8,9 +8,7 @@ set(CMAKE_BUILD_TYPE Release)
 set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
-set(SOURCE_API ${CMAKE_SOURCE_DIR}/src/Blurer.cpp ${CMAKE_SOURCE_DIR}/src/Blurer.h 
-        ${CMAKE_SOURCE_DIR}/src/Frame_Blurer.cpp  ${CMAKE_SOURCE_DIR}/src/Video_Renderer.cpp
-        ${CMAKE_SOURCE_DIR}/src/Video_Stream.cpp)
+set(SOURCE_API ${CMAKE_SOURCE_DIR}/src/Blurer.cpp ${CMAKE_SOURCE_DIR}/src/Blurer.h)
 set(${CMAKE_TOOLCHAIN_FILE} "build/conan_toolchain.cmake")
 
 

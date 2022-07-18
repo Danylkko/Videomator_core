@@ -107,32 +107,14 @@ int test_raw()
         tesseract::TessBaseAPI* ocr = new tesseract::TessBaseAPI();
         ocr->Init(NULL, "eng", tesseract::OEM_LSTM_ONLY);
         ocr->SetImage(frame.data, frame.cols, frame.rows, 3, frame.step);
-        //ocr->SetSourceResolution(2000);
 
         cv::Point2f ratio((float)frame.cols / inpWidth, (float)frame.rows / inpHeight);
         for (size_t i = 0; i < indices.size(); ++i)
         {
-            //cv::RotatedRect& box = boxes[indices[i]];
-
-            //cv::Point2f vertices[4];
-            //box.points(vertices);
-            //for (int j = 0; j < 4; ++j)
-            //{
-            //    vertices[j].x *= ratio.x;
-            //    vertices[j].y *= ratio.y;
-            //}
-            //for (int j = 0; j < 4; ++j)
-            //{
-            //    line(frame, vertices[j], vertices[(j + 1) % 4], cv::Scalar(0, 255, 0), 2, cv::LINE_AA);
-            //}
-            //ocr->SetRectangle(vertices[1].x, vertices[1].y, std::abs(vertices[2].x - vertices[1].x), std::abs(vertices[1].y - vertices[0].y));
-
             cv::Rect bbox = boxes[indices[i]].boundingRect();
             cv::Rect normalized_bbox = cv::Rect{ int((float)bbox.x * ratio.x), int((float)bbox.y * ratio.y), int((float)bbox.width * ratio.x), int((float)bbox.height * ratio.y) };
 
-
             ocr->SetRectangle(normalized_bbox.x, normalized_bbox.y, normalized_bbox.width, normalized_bbox.height);
-
 
             ocr->SetSourceResolution(2000);
             std::string outText = ocr->GetUTF8Text();
@@ -167,24 +149,18 @@ void test_memory_leaks()
     blurer.init();
     for (int i = 0; i < 5; i++)
     {
-        blurer.load("C:\\Users\\1voic\\Downloads\\Trim1.mp4");
-        blurer.start_render();
-        blurer.save_rendered("D:\\Photos\\test\\test1.avi");
-
         blurer.load("C:\\Users\\1voic\\Downloads\\Trim.mp4");
         blurer.start_render();
-        blurer.save_rendered("D:\\Photos\\test\\test2.avi");
+        blurer.save_rendered("D:\\Photos\\test\\test_really_bad.mp4");
+
+        blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
+        blurer.start_render();
+        blurer.save_rendered("D:\\Photos\\test\\test_good.mp4");
+
+        blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_bad.mp4");
+        blurer.start_render();
+        blurer.save_rendered("D:\\Photos\\test\\test_bad.mp4");
     }
-}
-
-void callback1(core_api::image_data data)
-{
-    std::cout << data.height << std::endl;
-}
-
-void callback2(core_api::image_data data)
-{
-    std::cout << data.width << std::endl;
 }
 
 int test_abstract()
@@ -194,72 +170,21 @@ int test_abstract()
 	core_api::Blurer blurer;
 	blurer.init("frozen_inference_graph.pb");
 
-    //blurer.load("yoda.jpg");
-    //blurer.load("book.jpeg");
     blurer.load("C:\\Users\\1voic\\Downloads\\Trim.mp4");
     blurer.start_render();
-    blurer.save_rendered("D:\\Photos\\test\\test_really_bad.mp4");
+    int i = 0;
+    while (!blurer.done_rendering())
+    {
+        blurer.create_stream(i);
+        //blurer.stream_load_next_wait();
+        core_api::image_data frame_buffer = blurer.stream_buffer_preview();
+        cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
+        if(!frame.empty())
+            cv::imshow(kWinName, frame);
+        cv::waitKey(2);
+        i++;
+    }
 
-    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
-    blurer.start_render();
-    blurer.save_rendered("D:\\Photos\\test\\test_good.mp4");
-
-    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_bad.mp4");
-    blurer.start_render();
-    blurer.save_rendered("D:\\Photos\\test\\test_bad.mp4");
-
-
-    //blurer.add_exeption("BE1837CO");
- //   blurer.start_render();
-
-	//blurer.create_stream(0);
- //   blurer.set_on_update_callback(callback1);
- //   //blurer.play_stream(blurer.get_fps());
- //   int i = 0;
- //   while (!blurer.done_rendering())
- //   {
- //       //if (i == 20)
- //       //{
- //       //    blurer.load("C:\\Users\\1voic\\Downloads\\Plate_test_good.mp4");
- //       //    blurer.start_render();
- //       //    blurer.create_stream(0);
- //       //}
- //       blurer.stream_load_next();
- //       core_api::image_data frame_buffer = blurer.stream_buffer_preview();
- //       cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
- //       if(!frame.empty())
- //           cv::imshow(kWinName, frame);
- //       cv::waitKey(2);
- //       i++;
- //   }
-
-    //blurer.create_stream(0);
-    //blurer.play_stream(blurer.get_fps());
-    //for(int i = 0; i<blurer.get_frame_count(); i++)
-    //{
-    //    int frame_delay = 1000 / blurer.get_fps();
-    //    auto frame_buffer = blurer.stream_buffer();
-    //    cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
-    //    if (!frame.empty())
-    //        cv::imshow(kWinName, frame);
-    //    cv::waitKey(frame_delay);
-    //}
-    //blurer.save_rendered("D:\\Photos\\test\\test_really_bad.mp4");
-
-    //blurer.load("C:\\Users\\1voic\\Downloads\\FH5_TEST.mp4");
-    //blurer.start_render();
-
-    //blurer.create_stream(0);
-    //blurer.play_stream(blurer.get_fps());
-    //while (!blurer.done_rendering())
-    //{
-    //    auto frame_buffer = blurer.stream_buffer();
-    //    cv::Mat frame{ frame_buffer.height,  frame_buffer.width, CV_8UC3, (void*)frame_buffer.data };
-    //    if (!frame.empty())
-    //        cv::imshow(kWinName, frame);
-    //    cv::waitKey(2);
-    //}
-    //blurer.save_rendered("D:\\Photos\\test\\test2.mp4");
 
 	return 0;
 }
@@ -267,8 +192,7 @@ int test_abstract()
 
 int main()
 {
-    //return test_raw();
-    //test_memory_leaks();
+    test_memory_leaks();
 
     return test_abstract();
 }
