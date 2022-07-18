@@ -231,11 +231,13 @@ private:
 
     cv::VideoCapture m_capture;
 
+    //size_t index;
     std::vector<std::vector<DetectedRect>>::const_iterator m_iter;
-    const std::vector<std::vector<DetectedRect>>& m_frame_data;
+    std::vector<std::vector<DetectedRect>>::const_iterator m_end;
 
     OnFrameCallback m_callback_fn = nullptr;
 
+    std::mutex m_buffer_lock;
 
     std::unique_ptr<std::thread> m_running_thread = nullptr;
 
@@ -244,8 +246,9 @@ private:
     void increment_iterator(std::chrono::milliseconds wait_time);
 };
 
-VideoStream::VideoStream(VideoRenderer& rend, int index) :m_iter(rend.frames().cbegin() + index), m_frame_data(rend.frames()) 
+VideoStream::VideoStream(VideoRenderer& rend, int index) :m_iter(rend.frames().cbegin() + index), m_end(rend.frames().cend()) 
 { 
+    std::scoped_lock lokc(VideoRenderer::frames_lock);
     m_buffer = *m_iter;
     m_capture.open(rend.capture_source());
 
@@ -257,21 +260,26 @@ VideoStream::VideoStream(VideoRenderer& rend, int index) :m_iter(rend.frames().c
 
 void VideoStream::load_next_frame()
 {
-    if (m_iter + 1 == m_frame_data.cend())
+    using namespace std::chrono_literals;
+    std::scoped_lock lock1(VideoRenderer::frames_lock);
+    std::scoped_lock lock2(m_buffer_lock);
+
+
+    if (m_iter == m_end)
         return;
-    if ((m_iter + 1)->size() != 0)
+    if (m_iter->size() != 0)
     {
-        m_iter++;
-        //std::lock_guard guard(buffer_lock);
         m_buffer = *m_iter;
         m_capture >> m_img_buffer;
+        //index++;
+        m_iter++;
     }
 }
 
 void VideoStream::load_next_frame_wait()
 {
     using namespace std::chrono_literals;
-    while ((m_iter + 1)->size() == 0)
+    while (m_iter->size() == 0)
         std::this_thread::sleep_for(20ms);
 
     load_next_frame();
@@ -298,12 +306,12 @@ void VideoStream::pause()
 
 void VideoStream::increment_iterator(std::chrono::milliseconds wait_time)
 {
-    while (m_iter != m_frame_data.cend() && m_play)
+    while (m_iter != m_end && m_play)
     {
         load_next_frame_wait();
         if (m_callback_fn)
         {
-            cv::Mat blurred = Processor::instance().blur(*m_iter, m_img_buffer);
+            cv::Mat blurred = Processor::instance().blur(m_buffer, m_img_buffer);
             m_callback_fn(image_data{ blurred.data, blurred.cols, blurred.rows });
         }
     }
@@ -666,6 +674,8 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
 {
     for (unsigned int i = 0; i < frame_count && m_render_active; i++)
     {
+        if (i == 132)
+            std::cout << "???" << std::endl;
         cv::Mat frame;
         *m_video >> frame;
         std::lock_guard lock{ frames_lock };
@@ -673,6 +683,7 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
             m_proccesed_frames[i + offset] = (FrameBlurer::render_instance().forward(frame, mode));
         else
             m_proccesed_frames[i + offset] = (FrameBlurer::render_instance().forward(frame, mode, m_proccesed_frames[i - 1 + offset]));
+        std::cout << i << std::endl;
     }
 }
 
@@ -741,7 +752,7 @@ void VideoRenderer::wait_render_finish()
 
 image_data VideoStream::buffer()
 {
-    //std::lock_guard<std::mutex> guard(buffer_lock); 
+    std::lock_guard<std::mutex> guard(m_buffer_lock);
     
     cv::Mat frame = Processor::instance().blur(m_buffer, m_img_buffer);
     #ifndef _WIN32
@@ -763,8 +774,9 @@ image_data VideoStream::buffer()
 image_data VideoStream::buffer_preview()
 {
     std::lock_guard lock(VideoRenderer::frames_lock);
+
     std::vector<DetectedRect> detections = m_buffer.size()==0 ? FrameBlurer::preview_instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all) : m_buffer;
-    //auto detections = FrameBlurer::instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all);
+    //auto detections = FrameBlurer::preview_instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all);
 
     cv::Mat frame = Processor::instance().blur(detections, m_img_buffer);
 #ifndef _WIN32
@@ -773,12 +785,13 @@ image_data VideoStream::buffer_preview()
 #endif
 
     unsigned int size = detections.size();
-    core_api::Detective* dets = new Detective[size];
-    for (int i = 0; i < size; i++)
-    {
-        char* text = new char[detections[i].text.size()];
-        strcpy(text, detections[i].text.c_str());
-        dets[i] = Detective{ detections[i].bbox.tl().y,  detections[i].bbox.tl().x, detections[i].bbox.width, detections[i].bbox.height, text };
-    }
-    return { frame.data, frame.cols, frame.rows, dets, size };
+    //core_api::Detective* dets = new Detective[size];
+    //for (int i = 0; i < size; i++)
+    //{
+    //    char* text = new char[detections[i].text.size()];
+    //    strcpy(text, detections[i].text.c_str());
+    //    dets[i] = Detective{ detections[i].bbox.tl().y,  detections[i].bbox.tl().x, detections[i].bbox.width, detections[i].bbox.height, text };
+    //}
+    //return { frame.data, frame.cols, frame.rows, dets, size };
+    return{ frame.data, frame.cols, frame.rows, nullptr, size };
 }
