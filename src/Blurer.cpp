@@ -78,10 +78,10 @@ private:
 };
 
 
-class VideoRenderer
+class VideoAnalyzer
 {
 public:
-    ~VideoRenderer();
+    ~VideoAnalyzer();
 
     inline void init_blurer(const char* model_data, const char* model_format, const char* tesseract_data_path) {
         FrameBlurer::render_instance().init(model_data, model_format, tesseract_data_path);
@@ -117,14 +117,14 @@ private:
 
     void render_impl(Blurer::detection_mode mode, uint32_t frame_count, uint32_t offset);
 };
-std::mutex VideoRenderer::frames_lock = std::mutex();
+std::mutex VideoAnalyzer::frames_lock = std::mutex();
 
 
 
 class VideoStream
 {
 public:
-    VideoStream(VideoRenderer& rend, int index);
+    VideoStream(VideoAnalyzer& rend, int index);
 
     inline ~VideoStream() { pause(); }
 
@@ -194,7 +194,7 @@ public:
 private:
     cv::VideoCapture m_capture;
 
-    VideoRenderer m_renderer;
+    VideoAnalyzer m_renderer;
 
     std::unique_ptr<VideoStream> m_stream = nullptr;
 };
@@ -270,7 +270,7 @@ FrameBlurer& FrameBlurer::preview_instance()
 
 
 
-void VideoRenderer::set_source(cv::VideoCapture& capture, std::string capture_source)
+void VideoAnalyzer::set_source(cv::VideoCapture& capture, std::string capture_source)
 {
     m_render_active = false;
     for (auto& thread : m_rendering_threads)
@@ -284,7 +284,7 @@ void VideoRenderer::set_source(cv::VideoCapture& capture, std::string capture_so
 }
 
 
-VideoRenderer::~VideoRenderer()
+VideoAnalyzer::~VideoAnalyzer()
 {
     m_render_active = false;
     for (auto& thread : m_rendering_threads)
@@ -295,9 +295,9 @@ VideoRenderer::~VideoRenderer()
 
 
 
-VideoStream::VideoStream(VideoRenderer& rend, int index) :m_iter(rend.frames().cbegin() + index), m_end(rend.frames().cend())
+VideoStream::VideoStream(VideoAnalyzer& rend, int index) :m_iter(rend.frames().cbegin() + index), m_end(rend.frames().cend())
 {
-    std::scoped_lock lokc(VideoRenderer::frames_lock);
+    std::scoped_lock lokc(VideoAnalyzer::frames_lock);
     m_buffer = *m_iter;
     m_capture.open(rend.capture_source());
 
@@ -310,7 +310,7 @@ VideoStream::VideoStream(VideoRenderer& rend, int index) :m_iter(rend.frames().c
 void VideoStream::load_next_frame()
 {
     using namespace std::chrono_literals;
-    std::scoped_lock lock1(VideoRenderer::frames_lock);
+    std::scoped_lock lock1(VideoAnalyzer::frames_lock);
     std::scoped_lock lock2(m_buffer_lock);
 
 
@@ -469,7 +469,7 @@ std::vector<DetectedRect> FrameBlurer::forward(cv::Mat frame, Blurer::detection_
 }
 
 
-void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_count, uint32_t offset)
+void VideoAnalyzer::render_impl(Blurer::detection_mode mode, uint32_t frame_count, uint32_t offset)
 {
     for (unsigned int i = 0; i < frame_count && m_render_active; i++)
     {
@@ -486,19 +486,19 @@ void VideoRenderer::render_impl(Blurer::detection_mode mode, uint32_t frame_coun
     }
 }
 
-void VideoRenderer::render_async(Blurer::detection_mode mode)
+void VideoAnalyzer::render_async(Blurer::detection_mode mode)
 {
     m_render_active = true;
     int frame_count = get_source_frames();
     m_proccesed_frames = std::vector<std::vector<DetectedRect>>(frame_count);
 
-    m_rendering_threads.emplace_back(&VideoRenderer::render_impl, this, mode, frame_count, 0);
+    m_rendering_threads.emplace_back(&VideoAnalyzer::render_impl, this, mode, frame_count, 0);
 }
 
 
 
 
-void VideoRenderer::save(const char* path)
+void VideoAnalyzer::save(const char* path)
 {
     wait_render_finish();
     using namespace std::chrono_literals;
@@ -516,7 +516,7 @@ void VideoRenderer::save(const char* path)
     m_rendering_threads.clear();
 }
 
-void VideoRenderer::wait_render_finish()
+void VideoAnalyzer::wait_render_finish()
 {
     for (auto& thread : m_rendering_threads)
     {
@@ -548,7 +548,7 @@ image_data VideoStream::buffer()
 
 image_data VideoStream::buffer_preview()
 {
-    std::lock_guard lock(VideoRenderer::frames_lock);
+    std::lock_guard lock(VideoAnalyzer::frames_lock);
 
     std::vector<DetectedRect> detections = m_buffer.size() == 0 ? FrameBlurer::preview_instance().forward(m_img_buffer, core_api::Blurer::detection_mode::all) : m_buffer;
 
