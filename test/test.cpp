@@ -10,7 +10,7 @@
 #include <vector>
 #include <array>
 
-#include "../../final_core/src/Blurer.h"
+#include "../../Videomator_core/src/Blurer.h"
 
 
 void decode(const cv::Mat& scores, const cv::Mat& geometry, float scoreThresh,
