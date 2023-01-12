@@ -18,8 +18,8 @@
 
 #define EXPORT
 
-#define EXTERN_BEGIN 
-#define EXTERN_END 
+#define EXTERN_BEGIN
+#define EXTERN_END
 
 #endif
 
